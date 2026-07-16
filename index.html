@@ -257,8 +257,8 @@ const ACCOUNT_TYPE_LABEL = { cash:'ক্যাশ', bank:'ব্যাংক', 
 const CONTACT_TYPE_LABEL = { customer:'কাস্টমার', supplier:'সাপ্লায়ার', personal:'ব্যক্তিগত', employee:'কর্মচারী', other:'অন্যান্য' };
 
 let state = {
-  active:'dashboard', user:null, contactDetailId:null, settings:null, pinUnlocked:false,
-  accounts:[], categories:[], contacts:[], products:[], transactions:[], loaded:false,
+  active:'dashboard', user:null, contactDetailId:null, settings:null, pinUnlocked:false, editingTxnId:null,
+  accounts:[], categories:[], contacts:[], products:[], transactions:[], trash:[], loaded:false,
 };
 
 function fmt(n){ n=Number(n)||0; return '৳'+n.toLocaleString('en-IN',{maximumFractionDigits:2}); }
@@ -359,21 +359,37 @@ async function ensureDefaults(){
 
 async function loadAll(){
   const uid = state.user.id;
-  const [a,c,ct,p,t,s] = await Promise.all([
+  const [a,c,ct,p,t,s,tr] = await Promise.all([
     sb.from('accounts').select('*').eq('user_id',uid).order('created_at'),
     sb.from('categories').select('*').eq('user_id',uid).order('category_type'),
     sb.from('contacts').select('*').eq('user_id',uid).order('contact_name'),
     sb.from('products').select('*').eq('user_id',uid).order('product_name'),
     sb.from('transactions').select('*, transaction_items(*)').eq('user_id',uid).is('deleted_at', null).order('transaction_date',{ascending:false}),
     sb.from('settings').select('*').eq('user_id',uid).maybeSingle(),
+    sb.from('transactions').select('*, transaction_items(*)').eq('user_id',uid).not('deleted_at','is',null).order('deleted_at',{ascending:false}),
   ]);
   state.accounts=a.data||[]; state.categories=c.data||[]; state.contacts=ct.data||[]; state.products=p.data||[]; state.transactions=t.data||[];
+  state.trash = tr.data||[];
   state.settings = s.data || null;
   if(!state.settings){
     const { data: ns } = await sb.from('settings').insert({ user_id: uid }).select().maybeSingle();
     state.settings = ns;
   }
+  await purgeOldTrash();
   state.loaded=true;
+}
+
+async function purgeOldTrash(){
+  const cutoff = Date.now() - 30*24*60*60*1000;
+  const toPurge = state.trash.filter(t=> t.deleted_at && new Date(t.deleted_at).getTime() < cutoff);
+  for(const t of toPurge){
+    await sb.from('transaction_items').delete().eq('transaction_id', t.id);
+    await sb.from('transactions').delete().eq('id', t.id);
+  }
+  if(toPurge.length){
+    const purgedIds = new Set(toPurge.map(t=>t.id));
+    state.trash = state.trash.filter(t=> !purgedIds.has(t.id));
+  }
 }
 
 // ================= PIN LOCK =================
@@ -568,18 +584,30 @@ function txnRow(t){
       <div class="meta">${sub}</div>
       <span class="badge ${t.transaction_type}">${TXN_TYPE_LABEL[t.transaction_type]}</span>
     </div>
-    <div style="display:flex; align-items:center; gap:8px;">
+    <div style="display:flex; align-items:center; gap:6px;">
       <div class="amt ${isPos?'pos':'neg'}">${isPos?'+':'−'}${fmt(t.total_amount)}</div>
+      <button class="icon-btn" data-id="${t.id}" onclick="editTxn('${t.id}')">✏️</button>
       <button class="icon-btn" data-id="${t.id}" onclick="deleteTxn('${t.id}')">🗑</button>
     </div>
   </div>`;
 }
 
+window.editTxn = function(id){
+  state.editingTxnId = id; state.contactDetailId = null; state.active = 'transactions';
+  renderTabs(); renderMain();
+};
+
 window.deleteTxn = async function(id){
-  if(!confirm('এই লেনদেনটি মুছে ফেলতে চান?')) return;
-  await sb.from('transaction_items').delete().eq('transaction_id', id);
-  const { error } = await sb.from('transactions').delete().eq('id', id);
-  if(!error){ state.transactions = state.transactions.filter(t=>t.id!==id); showSaved('মুছে ফেলা হয়েছে'); renderMain(); }
+  if(!confirm('এই লেনদেনটি ট্র্যাশে সরাতে চান? ৩০ দিন পর এটা স্বয়ংক্রিয়ভাবে স্থায়ীভাবে মুছে যাবে।')) return;
+  const nowIso = new Date().toISOString();
+  const { data, error } = await sb.from('transactions').update({ deleted_at: nowIso }).eq('id', id).select('*, transaction_items(*)');
+  if(!error){
+    const idx = state.transactions.findIndex(t=>t.id===id);
+    if(idx>-1){ state.transactions.splice(idx,1); }
+    state.trash.unshift(data[0]);
+    showSaved('ট্র্যাশে সরানো হয়েছে');
+    renderMain();
+  }
 };
 
 // ================= TRANSACTIONS TAB (Quick Add, BuKu-style) =================
@@ -594,31 +622,75 @@ const QA_BUTTONS = [
 ];
 
 function renderTransactions(el){
+  const editing = state.editingTxnId ? state.transactions.find(t=>t.id===state.editingTxnId) : null;
   el.innerHTML = `
-    <h2 class="section-title">দ্রুত এন্ট্রি</h2>
+    <h2 class="section-title">${editing ? '✏️ লেনদেন সম্পাদনা' : 'দ্রুত এন্ট্রি'}</h2>
     <div class="qa-card">
       <div class="row2">
-        <div><label>তারিখ</label><input type="date" id="qaDate" value="${todayStr()}"></div>
-        <div><label>হিসাব</label><select id="qaAccount">${state.accounts.map(a=>`<option value="${a.id}">${a.account_name}</option>`).join('')}</select></div>
+        <div><label>তারিখ</label><input type="date" id="qaDate" value="${editing?editing.transaction_date:todayStr()}"></div>
+        <div><label>হিসাব</label>
+          <select id="qaAccount">
+            ${state.accounts.map(a=>`<option value="${a.id}" ${editing&&editing.account_id===a.id?'selected':''}>${a.account_name}</option>`).join('')}
+            <option value="__new__">➕ নতুন হিসাব যোগ করুন</option>
+          </select>
+        </div>
       </div>
-      <div><label>পার্টি (ঐচ্ছিক)</label><select id="qaParty"><option value="">— কোনো পার্টি না —</option>${state.contacts.map(c=>`<option value="${c.id}">${c.contact_name}</option>`).join('')}</select></div>
-      <div><label>পরিমাণ (৳)</label><input type="number" step="0.01" id="qaAmount" placeholder="0.00"></div>
-      <div><label>নোট (ঐচ্ছিক)</label><input type="text" id="qaNote" placeholder="বিস্তারিত"></div>
-      <label class="checkbox-row"><input type="checkbox" id="qaPaid" checked> সম্পূর্ণ নগদে (ক্রয়/বিক্রয়ের ক্ষেত্রে প্রযোজ্য)</label>
+      <div id="newAccountFields" class="row2" style="display:none;">
+        <div><label>নতুন হিসাবের নাম</label><input type="text" id="newAccName" placeholder="যেমন: ব্যাংক এশিয়া"></div>
+        <div><label>ধরন</label><select id="newAccType">${Object.keys(ACCOUNT_TYPE_LABEL).map(k=>`<option value="${k}">${ACCOUNT_TYPE_LABEL[k]}</option>`).join('')}</select></div>
+      </div>
+      <div><label>পার্টি (ঐচ্ছিক)</label><select id="qaParty"><option value="">— কোনো পার্টি না —</option>${state.contacts.map(c=>`<option value="${c.id}" ${editing&&editing.contact_id===c.id?'selected':''}>${c.contact_name}</option>`).join('')}</select></div>
+      <div><label>পরিমাণ (৳)</label><input type="number" step="0.01" id="qaAmount" value="${editing?editing.total_amount:''}" placeholder="0.00"></div>
+      <div><label>নোট (ঐচ্ছিক)</label><input type="text" id="qaNote" value="${editing&&editing.notes?editing.notes:''}" placeholder="বিস্তারিত"></div>
+      <label class="checkbox-row"><input type="checkbox" id="qaPaid" ${!editing || !(Number(editing.due_amount)>0) ? 'checked':''}> সম্পূর্ণ নগদে (ক্রয়/বিক্রয়ের ক্ষেত্রে প্রযোজ্য)</label>
+      ${editing ? `
+        <div style="font-size:.75rem; color:var(--ink-soft);">এন্ট্রির ধরন: <b>${TXN_TYPE_LABEL[editing.transaction_type]}</b> (ধরন বদলাতে চাইলে এটি ট্র্যাশে দিয়ে নতুন করে যোগ করুন)</div>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-primary" id="qaUpdateBtn" style="flex:1;">আপডেট করুন</button>
+          <button type="button" class="btn btn-outline" id="qaCancelBtn" style="flex:1;">বাতিল</button>
+        </div>
+      ` : `
       <div class="qa-grid">
         ${QA_BUTTONS.map(b=>`<button type="button" class="qa-btn ${b.cls}" data-type="${b.type}" data-needs-contact="${b.needsContact}">${b.label}</button>`).join('')}
       </div>
+      `}
     </div>
-    <h2 class="section-title">সাম্প্রতিক লেনদেন</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--line); padding-bottom:10px; margin-bottom:14px;">
+      <h2 class="section-title" style="border:none; margin:0; padding:0;">সাম্প্রতিক লেনদেন</h2>
+      <button class="btn btn-outline" id="trashBtn" style="padding:7px 13px; font-size:.75rem;">🗑 ট্র্যাশ (${state.trash.length})</button>
+    </div>
     <div class="entry-list" id="txnList"></div>
   `;
+
+  document.getElementById('qaAccount').addEventListener('change', (e)=>{
+    document.getElementById('newAccountFields').style.display = e.target.value==='__new__' ? 'grid' : 'none';
+  });
 
   el.querySelectorAll('.qa-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> quickAddSubmit(btn.dataset.type, btn.dataset.needsContact==='true', el));
   });
 
+  if(editing){
+    document.getElementById('qaUpdateBtn').addEventListener('click', ()=> updateTxnSubmit(editing, el));
+    document.getElementById('qaCancelBtn').addEventListener('click', ()=>{ state.editingTxnId=null; renderTransactions(el); });
+  }
+  document.getElementById('trashBtn').addEventListener('click', ()=> renderTrash(el));
+
   const list = el.querySelector('#txnList');
   list.innerHTML = state.transactions.length ? state.transactions.slice(0,30).map(t=>txnRow(t)).join('') : `<div class="empty-state">এখনো কোনো লেনদেন নেই</div>`;
+}
+
+async function resolveAccountId(){
+  const sel = document.getElementById('qaAccount');
+  if(sel.value !== '__new__') return sel.value;
+  const name = document.getElementById('newAccName').value.trim();
+  if(!name){ alert('নতুন হিসাবের নাম লিখুন'); return null; }
+  const type = document.getElementById('newAccType').value;
+  const { data, error } = await sb.from('accounts').insert({ user_id: state.user.id, account_name:name, account_type:type, opening_balance:0, current_balance:0 }).select();
+  if(error){ alert('হিসাব তৈরি করতে সমস্যা হয়েছে: '+error.message); return null; }
+  state.accounts.push(data[0]);
+  showSaved('নতুন হিসাব তৈরি হয়েছে');
+  return data[0].id;
 }
 
 async function quickAddSubmit(type, needsContact, el){
@@ -626,7 +698,8 @@ async function quickAddSubmit(type, needsContact, el){
   if(!amount || amount<=0){ alert('পরিমাণ লিখুন'); return; }
   const contactId = document.getElementById('qaParty').value;
   if(needsContact && !contactId){ alert('এই এন্ট্রির জন্য একটি পার্টি নির্বাচন করুন'); return; }
-  const accountId = document.getElementById('qaAccount').value;
+  const accountId = await resolveAccountId();
+  if(!accountId) return;
   const date = document.getElementById('qaDate').value || todayStr();
   const note = document.getElementById('qaNote').value || null;
   const fullyPaid = document.getElementById('qaPaid').checked;
@@ -645,11 +718,80 @@ async function quickAddSubmit(type, needsContact, el){
   if(error){ alert('সমস্যা হয়েছে: '+error.message); return; }
   const newTxn = data[0]; newTxn.transaction_items = [];
   state.transactions.unshift(newTxn);
-  document.getElementById('qaAmount').value = '';
-  document.getElementById('qaNote').value = '';
   showSaved();
   renderTransactions(el);
 }
+
+async function updateTxnSubmit(editing, el){
+  const amount = parseFloat(document.getElementById('qaAmount').value);
+  if(!amount || amount<=0){ alert('পরিমাণ লিখুন'); return; }
+  const accountId = await resolveAccountId();
+  if(!accountId) return;
+  const contactId = document.getElementById('qaParty').value || null;
+  const date = document.getElementById('qaDate').value || todayStr();
+  const note = document.getElementById('qaNote').value || null;
+  const fullyPaid = document.getElementById('qaPaid').checked;
+  let paid = amount, due = 0;
+  if(['sale','purchase'].includes(editing.transaction_type)){ paid = fullyPaid ? amount : 0; due = amount - paid; }
+  else { paid = amount; due = 0; }
+  const payload = { transaction_date: date, account_id: accountId, contact_id: contactId, total_amount: amount, paid_amount: paid, due_amount: due, notes: note };
+  const { data, error } = await sb.from('transactions').update(payload).eq('id', editing.id).select();
+  if(error){ alert('সমস্যা হয়েছে: '+error.message); return; }
+  const idx = state.transactions.findIndex(t=>t.id===editing.id);
+  data[0].transaction_items = editing.transaction_items || [];
+  if(idx>-1) state.transactions[idx] = data[0];
+  state.editingTxnId = null;
+  showSaved('আপডেট হয়েছে');
+  renderTransactions(el);
+}
+
+// ================= TRASH =================
+function renderTrash(el){
+  el.innerHTML = `
+    <button class="back-btn" id="trashBack">← লেনদেনে ফিরুন</button>
+    <h2 class="section-title">🗑 ট্র্যাশ</h2>
+    <p style="font-size:.78rem; color:var(--ink-soft); margin:-8px 0 16px;">এখানে থাকা এন্ট্রিগুলো ৩০ দিন পর স্বয়ংক্রিয়ভাবে স্থায়ীভাবে মুছে যাবে।</p>
+    <div class="entry-list" id="trashList"></div>
+  `;
+  document.getElementById('trashBack').addEventListener('click', ()=> renderTransactions(el));
+  const list = document.getElementById('trashList');
+  list.innerHTML = state.trash.length ? state.trash.map(t=>{
+    const daysLeft = Math.max(0, 30 - Math.floor((Date.now()-new Date(t.deleted_at).getTime())/(24*60*60*1000)));
+    return `
+    <div class="entry">
+      <div>
+        <div class="name">${TXN_TYPE_LABEL[t.transaction_type]||t.transaction_type}${t.notes?' — '+t.notes:''}</div>
+        <div class="meta">${t.transaction_date} · ${daysLeft} দিন পর স্থায়ীভাবে মুছবে</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <div class="amt">${fmt(t.total_amount)}</div>
+        <button class="icon-btn" onclick="restoreTxn('${t.id}')" title="পুনরুদ্ধার">↩️</button>
+        <button class="icon-btn" onclick="purgeTxnNow('${t.id}')" title="স্থায়ীভাবে মুছুন">❌</button>
+      </div>
+    </div>`;
+  }).join('') : `<div class="empty-state">ট্র্যাশ খালি</div>`;
+}
+
+window.restoreTxn = async function(id){
+  const { data, error } = await sb.from('transactions').update({ deleted_at: null }).eq('id', id).select('*, transaction_items(*)');
+  if(!error){
+    const idx = state.trash.findIndex(t=>t.id===id);
+    if(idx>-1) state.trash.splice(idx,1);
+    state.transactions.unshift(data[0]);
+    showSaved('পুনরুদ্ধার হয়েছে');
+    renderTrash(document.getElementById('main-content'));
+  }
+};
+window.purgeTxnNow = async function(id){
+  if(!confirm('এটা এখনই স্থায়ীভাবে মুছে ফেলতে চান? এটা আর ফেরত আনা যাবে না।')) return;
+  await sb.from('transaction_items').delete().eq('transaction_id', id);
+  const { error } = await sb.from('transactions').delete().eq('id', id);
+  if(!error){
+    state.trash = state.trash.filter(t=>t.id!==id);
+    showSaved('স্থায়ীভাবে মুছে ফেলা হয়েছে');
+    renderTrash(document.getElementById('main-content'));
+  }
+};
 
 // ================= REPORT TAB =================
 function renderReport(el){
