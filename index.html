@@ -632,10 +632,12 @@ const QA_BUTTONS = [
   { type:'purchase',   label:'ক্রয়',        cls:'red',   needsContact:true  },
   { type:'income',     label:'আয়',          cls:'green', needsContact:false },
   { type:'expense',    label:'ব্যয়',        cls:'red',   needsContact:false },
-  { type:'receivable', label:'বাকি দিলাম',  cls:'green', needsContact:true  },
-  { type:'payable',    label:'বাকি নিলাম',  cls:'red',   needsContact:true  },
-  { type:'receive_due',label:'বাকি আদায়',   cls:'green', needsContact:true  },
-  { type:'pay_due',    label:'বাকি শোধ',    cls:'red',   needsContact:true  },
+  { type:'receivable', label:'বাকি দিলাম',  cls:'green', needsContact:true, noteTag:'বাকি' },
+  { type:'payable',    label:'বাকি নিলাম',  cls:'red',   needsContact:true, noteTag:'বাকি' },
+  { type:'receivable', label:'ধার দিলাম',   cls:'green', needsContact:true, noteTag:'ধার' },
+  { type:'payable',    label:'ধার নিলাম',   cls:'red',   needsContact:true, noteTag:'ধার' },
+  { type:'receive_due',label:'বকেয়া আদায়', cls:'green', needsContact:true  },
+  { type:'pay_due',    label:'বকেয়া শোধ',  cls:'red',   needsContact:true  },
 ];
 
 function renderTransactions(el){
@@ -668,9 +670,9 @@ function renderTransactions(el){
         </div>
       ` : `
       <div class="qa-grid">
-        ${QA_BUTTONS.map(b=>`<button type="button" class="qa-btn ${b.cls}" data-type="${b.type}" data-needs-contact="${b.needsContact}">${b.label}</button>`).join('')}
+        ${QA_BUTTONS.map(b=>`<button type="button" class="qa-btn ${b.cls}" data-type="${b.type}" data-needs-contact="${b.needsContact}" data-note-tag="${b.noteTag||''}">${b.label}</button>`).join('')}
       </div>
-      <p style="font-size:.72rem; color:var(--ink-soft); margin:2px 0 0;">💡 <b>বাকি দিলাম</b> = কাউকে বাকিতে দিলেন (ওরা পাবে) · <b>বাকি নিলাম</b> = আপনি বাকিতে নিলেন (আপনি দেবেন, যেমন বাকিতে চা) · <b>বাকি আদায়/শোধ</b> = আগের বাকি মেটানো</p>
+      <p style="font-size:.72rem; color:var(--ink-soft); margin:2px 0 0;">💡 <b>বাকি</b> = জিনিস/সেবার বাকি (যেমন বাকিতে চা) · <b>ধার</b> = নগদ টাকা ধার · <b>বকেয়া আদায়/শোধ</b> = আগের যেকোনো বাকি/ধার মেটানো</p>
       `}
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--line); padding-bottom:10px; margin-bottom:14px;">
@@ -685,7 +687,7 @@ function renderTransactions(el){
   });
 
   el.querySelectorAll('.qa-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=> quickAddSubmit(btn.dataset.type, btn.dataset.needsContact==='true', el));
+    btn.addEventListener('click', ()=> quickAddSubmit(btn.dataset.type, btn.dataset.needsContact==='true', el, btn.dataset.noteTag));
   });
 
   if(editing){
@@ -711,7 +713,7 @@ async function resolveAccountId(){
   return data[0].id;
 }
 
-async function quickAddSubmit(type, needsContact, el){
+async function quickAddSubmit(type, needsContact, el, noteTag){
   const amount = parseFloat(document.getElementById('qaAmount').value);
   if(!amount || amount<=0){ alert('পরিমাণ লিখুন'); return; }
   const contactId = document.getElementById('qaParty').value;
@@ -719,7 +721,9 @@ async function quickAddSubmit(type, needsContact, el){
   const accountId = await resolveAccountId();
   if(!accountId) return;
   const date = document.getElementById('qaDate').value || todayStr();
-  const note = document.getElementById('qaNote').value || null;
+  let note = document.getElementById('qaNote').value || '';
+  if(noteTag) note = `[${noteTag}]` + (note ? ' '+note : '');
+  note = note || null;
   const fullyPaid = document.getElementById('qaPaid').checked;
 
   let paid = amount, due = 0;
