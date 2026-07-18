@@ -248,6 +248,7 @@
 const SUPABASE_URL = "https://gzywvnicquoalzejfpxv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_xn1ztsAMI7SJrbi3xf0psw_SFCyUQ6I";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+console.log('হিসাবের খাতা — build: admin-v1');
 
 const TABS = [
   { id:'dashboard', label:'ড্যাশবোর্ড', icon:'📊' },
@@ -352,6 +353,8 @@ async function bootApp(){
   renderTabs(); renderMain();
   await ensureDefaults();
   await loadAll();
+  const emailLabel = document.getElementById('userEmailLabel');
+  emailLabel.textContent = state.user.email + (state.profile && state.profile.is_admin ? ' 👑 (Admin)' : '');
   renderTabs(); renderMain();
   if(isAccessExpired()){
     showExpiredScreen();
