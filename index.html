@@ -139,6 +139,16 @@
   .pin-key:active{ background:var(--paper-dark);}
   .pin-key.wide{ font-size:.85rem; color:var(--ink-soft);}
   .pin-error{ color:var(--maroon); font-size:.78rem; min-height:1.2em; margin-bottom:8px;}
+  /* Blog */
+  .blog-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; cursor:pointer; transition:.15s;}
+  .blog-card:active{ transform:scale(.99);}
+  .blog-card .blog-title{ font-family:'Noto Serif Bengali',serif; font-size:1.08rem; font-weight:700; margin-bottom:6px; line-height:1.4;}
+  .blog-card .blog-meta{ font-size:.72rem; color:var(--ink-soft); margin-bottom:8px;}
+  .blog-card .blog-snippet{ font-size:.85rem; color:var(--ink-soft); line-height:1.6; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+  .blog-detail-title{ font-family:'Noto Serif Bengali',serif; font-size:1.4rem; font-weight:700; line-height:1.4; margin:4px 0 8px;}
+  .blog-detail-meta{ font-size:.78rem; color:var(--ink-soft); margin-bottom:20px; padding-bottom:16px; border-bottom:2px solid var(--line);}
+  .blog-detail-content{ font-size:.98rem; line-height:1.9; white-space:pre-wrap; color:var(--ink);}
+  .blog-locked{ text-align:center; padding:30px 16px; background:var(--paper); border:1px dashed var(--line); border-radius:14px; color:var(--ink-soft); font-size:.85rem;}
   /* Settings panel */
   .settings-overlay{ position:fixed; inset:0; background:rgba(43,36,32,0.45); z-index:100; display:flex; align-items:flex-end; justify-content:center;}
   .settings-sheet{ background:var(--card); width:100%; max-width:480px; border-radius:20px 20px 0 0; padding:22px 20px 28px; box-shadow:0 -6px 24px rgba(0,0,0,.2); max-height:85vh; overflow-y:auto;}
@@ -235,7 +245,6 @@
       </div>
     </div>
     <div class="header-actions">
-      <button class="icon-round" id="debugBtn" title="ডিবাগ">🔧</button>
       <button class="icon-round" id="settingsBtn" title="সেটিংস">⚙</button>
       <button class="logout-btn" id="logoutBtn">লগআউট</button>
     </div>
@@ -258,6 +267,7 @@ const TABS = [
   { id:'accounts', label:'হিসাব', icon:'🏦' },
   { id:'contacts', label:'পরিচিতি', icon:'👥' },
   { id:'products', label:'পণ্য', icon:'📦' },
+  { id:'blog', label:'ব্লগ', icon:'📝' },
 ];
 
 const TXN_TYPE_LABEL = {
@@ -271,6 +281,7 @@ let state = {
   active:'dashboard', user:null, contactDetailId:null, settings:null, pinUnlocked:false, editingTxnId:null,
   editingAccountId:null, editingContactId:null, editingProductId:null, profile:null, profileError:null, allProfiles:[],
   accounts:[], categories:[], contacts:[], products:[], transactions:[], trash:[], loaded:false,
+  blogPosts:[], blogLoaded:false, blogPostDetailId:null, editingBlogPostId:null,
 };
 
 function fmt(n){ n=Number(n)||0; return '৳'+n.toLocaleString('en-IN',{maximumFractionDigits:2}); }
@@ -320,6 +331,7 @@ async function doLogout(){
   try{ await sb.auth.signOut(); } catch(e){ console.error(e); }
   // Force UI switch regardless, in case the auth-state event is delayed or blocked
   state.user = null; state.loaded = false; state.pinUnlocked = false; state.settings = null; state.profile = null;
+  state.blogPosts = []; state.blogLoaded = false; state.blogPostDetailId = null; state.editingBlogPostId = null;
   document.getElementById('pinScreen').style.display='none';
   document.getElementById('expiredScreen').style.display='none';
   document.getElementById('authScreen').style.display='flex';
@@ -327,18 +339,6 @@ async function doLogout(){
   document.getElementById('authForm').reset();
   setAuthMode('login');
 }
-document.getElementById('debugBtn').addEventListener('click', ()=>{
-  const info = [
-    'build: admin-v1',
-    'user.email: ' + (state.user ? state.user.email : 'null'),
-    'user.id: ' + (state.user ? state.user.id : 'null'),
-    'profile fetched: ' + (state.profile ? 'yes' : 'NO (null/undefined)'),
-    'profile.is_admin: ' + (state.profile ? state.profile.is_admin : 'n/a'),
-    'fetch error: ' + (state.profileError ? JSON.stringify(state.profileError) : 'none'),
-    'profile raw: ' + JSON.stringify(state.profile),
-  ].join('\n');
-  alert(info);
-});
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   document.getElementById('logoutBtn').textContent = '...';
   await doLogout();
@@ -576,13 +576,14 @@ function renderTabs(){
   const el = document.getElementById('tabs');
   const tabs = getTabs();
   el.innerHTML = tabs.map(t=>`<button class="tab-btn ${t.id===state.active?'active':''}" data-tab="${t.id}"><span>${t.icon}</span>${t.label}</button>`).join('');
-  el.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click', ()=>{ state.active=b.dataset.tab; state.contactDetailId=null; renderMain(); renderTabs(); }));
+  el.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click', ()=>{ state.active=b.dataset.tab; state.contactDetailId=null; state.blogPostDetailId=null; renderMain(); renderTabs(); }));
 }
 function renderMain(){
   const el = document.getElementById('main-content');
   if(!state.loaded){ el.innerHTML = `<div class="loading">লোড হচ্ছে...</div>`; return; }
   if(state.active==='contacts' && state.contactDetailId){ renderContactDetail(el, state.contactDetailId); return; }
-  ({dashboard:renderDashboard, transactions:renderTransactions, report:renderReport, accounts:renderAccounts, contacts:renderContacts, products:renderProducts, admin:renderAdmin})[state.active](el);
+  if(state.active==='blog' && state.blogPostDetailId){ renderBlogDetail(el, state.blogPostDetailId); return; }
+  ({dashboard:renderDashboard, transactions:renderTransactions, report:renderReport, accounts:renderAccounts, contacts:renderContacts, products:renderProducts, admin:renderAdmin, blog:renderBlog})[state.active](el);
 }
 
 // ================= DASHBOARD =================
@@ -1344,6 +1345,7 @@ function renderAdminList(el){
         <input type="date" id="dateFor_${p.id}" style="flex:1;" value="${p.access_expires_at ? new Date(p.access_expires_at).toISOString().slice(0,10) : ''}">
         <button class="btn btn-primary" style="font-size:.78rem; padding:9px 14px;" onclick="setCustomDate('${p.id}')">সেট করুন</button>
       </div>
+      <button class="btn ${p.can_post?'btn-primary':'btn-outline'}" style="font-size:.75rem; padding:9px;" onclick="togglePostAccess('${p.id}', ${!!p.can_post})">📝 ব্লগে পোস্ট করার অনুমতি: ${p.can_post?'চালু আছে (বন্ধ করুন)':'বন্ধ আছে (চালু করুন)'}</button>
       `}
     </div>`;
   }).join('');
@@ -1374,6 +1376,115 @@ window.setCustomDate = function(userId){
   const val = document.getElementById('dateFor_'+userId).value;
   if(!val){ alert('একটা তারিখ বাছাই করুন'); return; }
   updateUserExpiry(userId, new Date(val+'T23:59:59').toISOString());
+};
+
+// ================= BLOG =================
+function canPost(){
+  return !!(state.profile && (state.profile.is_admin || state.profile.can_post));
+}
+async function ensureBlogLoaded(){
+  if(state.blogLoaded) return;
+  const { data, error } = await sb.from('blog_posts').select('*').order('created_at',{ascending:false}).limit(50);
+  if(!error){ state.blogPosts = data || []; state.blogLoaded = true; }
+}
+async function renderBlog(el){
+  el.innerHTML = `<div class="loading">লোড হচ্ছে...</div>`;
+  await ensureBlogLoaded();
+  const editing = state.editingBlogPostId ? state.blogPosts.find(p=>p.id===state.editingBlogPostId) : null;
+  el.innerHTML = `
+    <h2 class="section-title">📝 ব্লগ</h2>
+    ${canPost() ? `
+    <form class="entry-form" id="blogForm">
+      <div><label>শিরোনাম</label><input type="text" id="blogTitle" required value="${editing?escapeAttr(editing.title):''}" placeholder="পোস্টের শিরোনাম লিখুন"></div>
+      <div><label>লেখা</label><textarea id="blogContent" required style="min-height:140px;" placeholder="এখানে লিখুন...">${editing?editing.content:''}</textarea></div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-primary" type="submit" style="flex:1;">${editing?'আপডেট করুন':'পোস্ট করুন'}</button>
+        ${editing?`<button class="btn btn-outline" type="button" id="blogCancelBtn" style="flex:1;">বাতিল</button>`:''}
+      </div>
+    </form>
+    ` : `<div class="blog-locked">✍️ এই মুহূর্তে আপনার পোস্ট করার অনুমতি নেই — শুধু পড়তে পারবেন। পোস্ট করার সুবিধা পেতে অ্যাডমিনের সাথে যোগাযোগ করুন।</div>`}
+    <h3 class="sub-title">সব পোস্ট</h3>
+    <div id="blogList"></div>
+  `;
+  if(canPost()){
+    document.getElementById('blogForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const title = document.getElementById('blogTitle').value.trim();
+      const content = document.getElementById('blogContent').value.trim();
+      if(!title || !content){ alert('শিরোনাম ও লেখা দুটোই দিন'); return; }
+      if(editing){
+        const { data, error } = await sb.from('blog_posts').update({ title, content, updated_at:new Date().toISOString() }).eq('id', editing.id).select();
+        if(error){ alert('সমস্যা হয়েছে: '+error.message); return; }
+        const idx = state.blogPosts.findIndex(p=>p.id===editing.id);
+        if(idx>-1) state.blogPosts[idx] = data[0];
+        state.editingBlogPostId = null;
+        showSaved('আপডেট হয়েছে');
+      } else {
+        const authorName = (state.profile && state.profile.full_name) ? state.profile.full_name : state.user.email.split('@')[0];
+        const { data, error } = await sb.from('blog_posts').insert({ user_id: state.user.id, author_name: authorName, title, content }).select();
+        if(error){ alert('সমস্যা হয়েছে: '+error.message); return; }
+        state.blogPosts.unshift(data[0]);
+        showSaved('পোস্ট হয়েছে');
+      }
+      renderBlog(el);
+    });
+    if(editing){ document.getElementById('blogCancelBtn').addEventListener('click', ()=>{ state.editingBlogPostId=null; renderBlog(el); }); }
+  }
+  const list = document.getElementById('blogList');
+  list.innerHTML = state.blogPosts.length ? state.blogPosts.map(p=>`
+    <div class="blog-card" data-post="${p.id}">
+      <div class="blog-title">${p.title}</div>
+      <div class="blog-meta">${p.author_name||'অজানা'} · ${new Date(p.created_at).toLocaleDateString('bn-BD',{year:'numeric',month:'short',day:'numeric'})}</div>
+      <div class="blog-snippet">${(p.content||'').slice(0,180)}</div>
+    </div>
+  `).join('') : `<div class="empty-state">এখনো কোনো পোস্ট নেই</div>`;
+  list.querySelectorAll('[data-post]').forEach(card=>{
+    card.addEventListener('click', ()=>{ state.blogPostDetailId = card.dataset.post; renderMain(); });
+  });
+}
+function escapeAttr(s){ return (s||'').replace(/"/g,'&quot;'); }
+
+function renderBlogDetail(el, postId){
+  const p = state.blogPosts.find(x=>x.id===postId);
+  if(!p){ state.blogPostDetailId=null; renderBlog(el); return; }
+  const isOwner = state.user && p.user_id === state.user.id;
+  const canManage = isOwner || (state.profile && state.profile.is_admin);
+  el.innerHTML = `
+    <button class="back-btn" id="blogBack">← ব্লগে ফিরুন</button>
+    <div class="blog-detail-title">${p.title}</div>
+    <div class="blog-detail-meta">
+      ${p.author_name||'অজানা'} · ${new Date(p.created_at).toLocaleDateString('bn-BD',{year:'numeric',month:'short',day:'numeric'})}
+      ${canManage ? `
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn btn-outline" id="blogEditBtn" style="font-size:.75rem; padding:7px 12px;">✏️ এডিট</button>
+          <button class="btn btn-outline" id="blogDeleteBtn" style="font-size:.75rem; padding:7px 12px; color:var(--maroon);">🗑 মুছুন</button>
+        </div>
+      ` : ''}
+    </div>
+    <div class="blog-detail-content">${p.content}</div>
+  `;
+  document.getElementById('blogBack').addEventListener('click', ()=>{ state.blogPostDetailId=null; renderMain(); });
+  if(canManage){
+    document.getElementById('blogEditBtn').addEventListener('click', ()=>{ state.editingBlogPostId = p.id; state.blogPostDetailId = null; renderMain(); });
+    document.getElementById('blogDeleteBtn').addEventListener('click', async ()=>{
+      if(!confirm('এই পোস্টটি স্থায়ীভাবে মুছে ফেলতে চান?')) return;
+      const { error } = await sb.from('blog_posts').delete().eq('id', p.id);
+      if(error){ alert('মুছা যায়নি: '+error.message); return; }
+      state.blogPosts = state.blogPosts.filter(x=>x.id!==p.id);
+      state.blogPostDetailId = null;
+      showSaved('পোস্ট মুছে ফেলা হয়েছে');
+      renderMain();
+    });
+  }
+}
+
+window.togglePostAccess = async function(userId, current){
+  const { data, error } = await sb.from('profiles').update({ can_post: !current }).eq('id', userId).select();
+  if(error){ alert('সমস্যা হয়েছে: '+error.message); return; }
+  const idx = state.allProfiles.findIndex(p=>p.id===userId);
+  if(idx>-1) state.allProfiles[idx] = data[0];
+  showSaved('আপডেট হয়েছে');
+  renderAdminList(document.getElementById('main-content'));
 };
 
 sb.auth.getSession().then(({data})=>{
