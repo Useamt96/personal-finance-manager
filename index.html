@@ -1,3 +1,108 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>হিসাবের খাতা — Personal Finance Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@500;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --paper:#f7f1e3; --paper-dark:#efe3c8; --ink:#2b2420; --ink-soft:#7a6f60;
+    --rule-red:#b5442e; --green:#2f7d5a; --green-bg:#e3f0e8; --maroon:#a13c3c; --maroon-bg:#f7e6e2;
+    --gold:#b3831f; --gold-bg:#f6ecd2; --line:#e2d2a8; --card:#fffdf7; --shadow:0 4px 18px rgba(60,40,20,0.10);
+    --accent-grad:linear-gradient(135deg,#b5442e,#8c2f39);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:
+      radial-gradient(circle at 15% 8%, rgba(181,68,46,0.05), transparent 40%),
+      radial-gradient(circle at 90% 90%, rgba(179,131,31,0.07), transparent 45%);
+    font-family:'Hind Siliguri', sans-serif; color:var(--ink); min-height:100vh;
+  }
+  .app{ max-width:720px; margin:0 auto; position:relative; padding-bottom:36px;}
+  header.top{
+    padding:26px 20px 18px; display:flex; justify-content:space-between; align-items:center;
+    background:var(--accent-grad); color:#fdf6ea; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    margin-bottom:16px;
+  }
+  header.top .brand{ display:flex; align-items:center; gap:10px;}
+  header.top .brand-icon{ font-size:1.6rem; }
+  header.top h1{ font-family:'Noto Serif Bengali', serif; font-size:1.35rem; margin:0; letter-spacing:.2px;}
+  header.top p{ margin:2px 0 0; font-size:.78rem; opacity:.85;}
+  .header-actions{ display:flex; gap:8px;}
+  .icon-round{ background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:1rem; color:#fff; cursor:pointer;}
+  .logout-btn{ background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.35); border-radius:20px; padding:7px 14px; font-size:.75rem; color:#fff; cursor:pointer; font-weight:600;}
+  .tabs{ display:flex; gap:8px; padding:0 14px 14px; overflow-x:auto; scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab-btn{ flex:0 0 auto; font-family:'Hind Siliguri',sans-serif; font-weight:600; font-size:.82rem; padding:10px 16px; background:var(--card); border:1px solid var(--line); border-radius:24px; color:var(--ink-soft); cursor:pointer; transition:.15s; display:flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(60,40,20,.05);}
+  .tab-btn.active{ background:var(--accent-grad); color:#fff; border-color:transparent; box-shadow:0 3px 10px rgba(161,60,60,.3);}
+  main{ background:var(--card); margin:0 14px; border-radius:18px; box-shadow:var(--shadow); border:1px solid var(--line); padding:20px 18px 26px; min-height:55vh;}
+  h2.section-title{ font-family:'Noto Serif Bengali', serif; font-size:1.15rem; margin:0 0 16px; padding-bottom:10px; border-bottom:2px solid var(--line); color:var(--ink); display:flex; align-items:center; gap:8px;}
+  h3.sub-title{ font-family:'Noto Serif Bengali', serif; font-size:.95rem; margin:20px 0 10px; color:var(--ink-soft);}
+  .cards-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;}
+  .stat-card{ background:linear-gradient(160deg,var(--paper) 0%, var(--paper-dark) 100%); border:1px solid var(--line); border-radius:14px; padding:14px; position:relative; overflow:hidden;}
+  .stat-card::before{ content:""; position:absolute; top:0; left:0; width:4px; height:100%; background:var(--ink-soft);}
+  .stat-card.pos::before{ background:var(--green);} .stat-card.neg::before{ background:var(--maroon);} .stat-card.gold::before{ background:var(--gold);}
+  .stat-card .label{ font-size:.72rem; color:var(--ink-soft); margin-bottom:5px; font-weight:600;}
+  .stat-card .value{ font-family:'Noto Serif Bengali',serif; font-size:1.2rem; font-weight:700;}
+  .stat-card.pos .value{ color:var(--green);} .stat-card.neg .value{ color:var(--maroon);} .stat-card.gold .value{ color:var(--gold);}
+  .chart-box{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:20px;}
+  .chart-box canvas{ max-height:220px;}
+  form.entry-form{ display:grid; gap:12px; background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:20px;}
+  form.entry-form .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  label{ font-size:.75rem; color:var(--ink-soft); display:block; margin-bottom:4px; font-weight:600;}
+  input, select, textarea{ width:100%; font-family:'Hind Siliguri',sans-serif; font-size:.92rem; padding:10px 12px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); transition:.15s;}
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--rule-red); box-shadow:0 0 0 3px rgba(181,68,46,0.1);}
+  textarea{ resize:vertical; min-height:40px;}
+  .btn{ font-family:'Hind Siliguri',sans-serif; font-weight:700; font-size:.92rem; padding:12px 18px; border-radius:11px; border:none; cursor:pointer; transition:.15s;}
+  .btn-primary{ background:var(--accent-grad); color:#fff; box-shadow:0 3px 10px rgba(161,60,60,.25);}
+  .btn-primary:active{ transform:scale(.98);}
+  .btn-outline{ background:transparent; border:1px solid var(--line); color:var(--ink-soft);}
+  .btn-block{ width:100%; }
+  .type-scroll{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none;}
+  .type-scroll::-webkit-scrollbar{display:none;}
+  .type-chip{ flex:0 0 auto; padding:9px 15px; border-radius:22px; border:1px solid var(--line); background:#fff; font-size:.8rem; font-weight:600; color:var(--ink-soft); cursor:pointer; white-space:nowrap;}
+  .type-chip.active{ background:var(--accent-grad); color:#fff; border-color:transparent;}
+  .entry-list{ display:grid; gap:10px;}
+  .entry{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; transition:.15s;}
+  .entry:active{ transform:scale(.99);}
+  .entry .meta{ font-size:.72rem; color:var(--ink-soft); margin-top:2px;}
+  .entry .name{ font-weight:700; font-size:.92rem;}
+  .entry .amt{ font-family:'Noto Serif Bengali',serif; font-weight:700; font-size:1.02rem; white-space:nowrap;}
+  .amt.pos{ color:var(--green);} .amt.neg{ color:var(--maroon);}
+  .icon-btn{ background:none; border:none; cursor:pointer; font-size:1.05rem; color:var(--ink-soft); padding:5px;}
+  .badge{ font-size:.62rem; padding:3px 9px; border-radius:20px; font-weight:700; display:inline-block; margin-top:4px;}
+  .badge.receivable, .badge.income, .badge.sale{ background:var(--green-bg); color:var(--green);}
+  .badge.payable, .badge.expense, .badge.purchase{ background:var(--maroon-bg); color:var(--maroon);}
+  .badge.transfer, .badge.receive_due, .badge.pay_due{ background:var(--gold-bg); color:var(--gold);}
+  .empty-state{ text-align:center; padding:36px 10px; color:var(--ink-soft); font-size:.9rem;}
+  .loading{ text-align:center; padding:20px; color:var(--ink-soft); font-size:.85rem;}
+  .save-status{ position:fixed; top:14px; right:14px; background:var(--accent-grad); color:#fff; padding:8px 16px; border-radius:20px; font-size:.75rem; opacity:0; transition:.3s; z-index:50; box-shadow:var(--shadow);}
+  .save-status.show{ opacity:1;}
+  ::placeholder{ color:#b8ac96;}
+  /* Auth screen */
+  .auth-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+    background:radial-gradient(circle at 20% 10%, rgba(181,68,46,.08), transparent 45%), var(--paper);}
+  .auth-card{ background:var(--card); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow); padding:32px 24px; width:100%; max-width:380px;}
+  .auth-card h1{ font-family:'Noto Serif Bengali',serif; text-align:center; margin:0 0 4px; font-size:1.7rem; background:var(--accent-grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .auth-card p.sub{ text-align:center; color:var(--ink-soft); font-size:.85rem; margin:0 0 22px;}
+  .auth-toggle{ display:flex; gap:8px; margin-bottom:18px; background:var(--paper); padding:4px; border-radius:12px;}
+  .auth-toggle button{ flex:1; padding:9px; border-radius:9px; border:none; background:transparent; font-weight:700; font-size:.85rem; color:var(--ink-soft); cursor:pointer;}
+  .auth-toggle button.active{ background:var(--card); color:var(--ink); box-shadow:0 1px 4px rgba(60,40,20,.1);}
+  .auth-error{ color:var(--maroon); font-size:.8rem; margin-top:4px; min-height:1em;}
+  .auth-note{ font-size:.75rem; color:var(--ink-soft); text-align:center; margin-top:14px;}
+  select[multiple]{ height:auto; }
+  .filter-bar{ display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+  .filter-bar select, .filter-bar input{ width:auto; flex:1; min-width:110px;}
+  /* Quick-add grid */
+  .qa-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:20px; display:grid; gap:12px;}
+  .qa-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;}
+  .qa-btn{ padding:16px 8px; border-radius:12px; border:none; font-weight:700; font-size:.92rem; cursor:pointer; font-family:'Hind Siliguri',sans-serif; display:flex; align-items:center; justify-content:center; gap:6px; transition:.15s;}
+  .qa-btn.green{ background:var(--green-bg); color:var(--green);}
   .qa-btn.red{ background:var(--maroon-bg); color:var(--maroon);}
   .qa-btn:active{ transform:scale(0.96);}
   .checkbox-row{ display:flex; align-items:center; gap:7px; font-size:.8rem; color:var(--ink-soft);}
@@ -130,6 +235,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <button class="icon-round" id="debugBtn" title="ডিবাগ">🔧</button>
       <button class="icon-round" id="settingsBtn" title="সেটিংস">⚙</button>
       <button class="logout-btn" id="logoutBtn">লগআউট</button>
     </div>
@@ -221,6 +327,17 @@ async function doLogout(){
   document.getElementById('authForm').reset();
   setAuthMode('login');
 }
+document.getElementById('debugBtn').addEventListener('click', ()=>{
+  const info = [
+    'build: admin-v1',
+    'user.email: ' + (state.user ? state.user.email : 'null'),
+    'user.id: ' + (state.user ? state.user.id : 'null'),
+    'profile fetched: ' + (state.profile ? 'yes' : 'NO (null/undefined)'),
+    'profile.is_admin: ' + (state.profile ? state.profile.is_admin : 'n/a'),
+    'profile raw: ' + JSON.stringify(state.profile),
+  ].join('\n');
+  alert(info);
+});
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   document.getElementById('logoutBtn').textContent = '...';
   await doLogout();
