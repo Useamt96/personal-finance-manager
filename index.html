@@ -183,6 +183,15 @@
   </div>
 </div>
 
+<div id="expiredScreen" class="pin-wrap" style="display:none;">
+  <div class="pin-card">
+    <div class="lock-icon">⏳</div>
+    <h2>মেয়াদ শেষ হয়ে গেছে</h2>
+    <p>আপনার ট্রায়াল বা সাবস্ক্রিপশনের মেয়াদ শেষ হয়ে গেছে। চালিয়ে যেতে হলে অ্যাপ পরিচালকের সাথে যোগাযোগ করুন।</p>
+    <button class="btn btn-outline btn-block" id="expiredLogoutBtn">লগআউট করুন</button>
+  </div>
+</div>
+
 <div id="pinScreen" class="pin-wrap" style="display:none;">
   <div class="pin-card">
     <div class="lock-icon">🔒</div>
@@ -258,7 +267,7 @@ const CONTACT_TYPE_LABEL = { customer:'কাস্টমার', supplier:'স�
 
 let state = {
   active:'dashboard', user:null, contactDetailId:null, settings:null, pinUnlocked:false, editingTxnId:null,
-  editingAccountId:null, editingContactId:null, editingProductId:null,
+  editingAccountId:null, editingContactId:null, editingProductId:null, profile:null, allProfiles:[],
   accounts:[], categories:[], contacts:[], products:[], transactions:[], trash:[], loaded:false,
 };
 
@@ -305,18 +314,24 @@ document.getElementById('authForm').addEventListener('submit', async (e)=>{
   }
   document.getElementById('authSubmitBtn').textContent = authMode==='signup' ? 'অ্যাকাউন্ট তৈরি করুন' : 'লগইন করুন';
 });
-document.getElementById('logoutBtn').addEventListener('click', async ()=>{
-  document.getElementById('logoutBtn').textContent = '...';
+async function doLogout(){
   try{ await sb.auth.signOut(); } catch(e){ console.error(e); }
   // Force UI switch regardless, in case the auth-state event is delayed or blocked
-  state.user = null; state.loaded = false; state.pinUnlocked = false; state.settings = null;
+  state.user = null; state.loaded = false; state.pinUnlocked = false; state.settings = null; state.profile = null;
   document.getElementById('pinScreen').style.display='none';
+  document.getElementById('expiredScreen').style.display='none';
   document.getElementById('authScreen').style.display='flex';
   document.getElementById('mainApp').style.display='none';
-  document.getElementById('logoutBtn').textContent = 'লগআউট';
   document.getElementById('authForm').reset();
   setAuthMode('login');
+}
+document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+  document.getElementById('logoutBtn').textContent = '...';
+  await doLogout();
+  document.getElementById('logoutBtn').textContent = 'লগআউট';
 });
+document.getElementById('expiredLogoutBtn').addEventListener('click', doLogout);
+
 
 sb.auth.onAuthStateChange((event, session)=>{
   if(session && session.user){
@@ -338,7 +353,24 @@ async function bootApp(){
   await ensureDefaults();
   await loadAll();
   renderTabs(); renderMain();
-  checkPinLock();
+  if(isAccessExpired()){
+    showExpiredScreen();
+  } else {
+    checkPinLock();
+  }
+}
+
+function isAccessExpired(){
+  if(!state.profile) return false;
+  if(state.profile.is_admin) return false;
+  if(!state.profile.access_expires_at) return false;
+  return new Date(state.profile.access_expires_at).getTime() < Date.now();
+}
+
+function showExpiredScreen(){
+  document.getElementById('pinScreen').style.display='none';
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('expiredScreen').style.display='flex';
 }
 
 async function ensureDefaults(){
@@ -360,7 +392,7 @@ async function ensureDefaults(){
 
 async function loadAll(){
   const uid = state.user.id;
-  const [a,c,ct,p,t,s,tr] = await Promise.all([
+  const [a,c,ct,p,t,s,tr,pr] = await Promise.all([
     sb.from('accounts').select('*').eq('user_id',uid).order('created_at'),
     sb.from('categories').select('*').eq('user_id',uid).order('category_type'),
     sb.from('contacts').select('*').eq('user_id',uid).order('contact_name'),
@@ -368,10 +400,12 @@ async function loadAll(){
     sb.from('transactions').select('*, transaction_items(*)').eq('user_id',uid).is('deleted_at', null).order('transaction_date',{ascending:false}),
     sb.from('settings').select('*').eq('user_id',uid).maybeSingle(),
     sb.from('transactions').select('*, transaction_items(*)').eq('user_id',uid).not('deleted_at','is',null).order('deleted_at',{ascending:false}),
+    sb.from('profiles').select('*').eq('id',uid).maybeSingle(),
   ]);
   state.accounts=a.data||[]; state.categories=c.data||[]; state.contacts=ct.data||[]; state.products=p.data||[]; state.transactions=t.data||[];
   state.trash = tr.data||[];
   state.settings = s.data || null;
+  state.profile = pr.data || null;
   if(!state.settings){
     const { data: ns } = await sb.from('settings').insert({ user_id: uid }).select().maybeSingle();
     state.settings = ns;
@@ -516,21 +550,34 @@ function productStock(prodId){
 }
 
 // ================= NAV =================
+function getTabs(){
+  const tabs = TABS.slice();
+  if(state.profile && state.profile.is_admin) tabs.push({ id:'admin', label:'অ্যাডমিন', icon:'👑' });
+  return tabs;
+}
 function renderTabs(){
   const el = document.getElementById('tabs');
-  el.innerHTML = TABS.map(t=>`<button class="tab-btn ${t.id===state.active?'active':''}" data-tab="${t.id}"><span>${t.icon}</span>${t.label}</button>`).join('');
+  const tabs = getTabs();
+  el.innerHTML = tabs.map(t=>`<button class="tab-btn ${t.id===state.active?'active':''}" data-tab="${t.id}"><span>${t.icon}</span>${t.label}</button>`).join('');
   el.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click', ()=>{ state.active=b.dataset.tab; state.contactDetailId=null; renderMain(); renderTabs(); }));
 }
 function renderMain(){
   const el = document.getElementById('main-content');
   if(!state.loaded){ el.innerHTML = `<div class="loading">লোড হচ্ছে...</div>`; return; }
   if(state.active==='contacts' && state.contactDetailId){ renderContactDetail(el, state.contactDetailId); return; }
-  ({dashboard:renderDashboard, transactions:renderTransactions, report:renderReport, accounts:renderAccounts, contacts:renderContacts, products:renderProducts})[state.active](el);
+  ({dashboard:renderDashboard, transactions:renderTransactions, report:renderReport, accounts:renderAccounts, contacts:renderContacts, products:renderProducts, admin:renderAdmin})[state.active](el);
 }
 
 // ================= DASHBOARD =================
 function renderDashboard(el){
   const now = new Date(); const curMonth = now.toISOString().slice(0,7);
+  let trialBanner = '';
+  if(state.profile && !state.profile.is_admin && state.profile.access_expires_at){
+    const daysLeft = Math.ceil((new Date(state.profile.access_expires_at).getTime()-Date.now())/(24*60*60*1000));
+    if(daysLeft <= 7){
+      trialBanner = `<div class="stat-card neg" style="margin-bottom:16px;"><div class="label">⏳ মেয়াদ</div><div class="value" style="font-size:.95rem;">আপনার মেয়াদ ${daysLeft>0?daysLeft+' দিন পর':'আজ'} শেষ হবে</div></div>`;
+    }
+  }
   const monthTx = state.transactions.filter(t=>t.transaction_date && t.transaction_date.startsWith(curMonth));
   const sum = (type)=> monthTx.filter(t=>t.transaction_type===type).reduce((s,t)=>s+Number(t.total_amount),0);
   const income=sum('income'), expense=sum('expense'), sale=sum('sale'), purchase=sum('purchase');
@@ -546,6 +593,7 @@ function renderDashboard(el){
 
   el.innerHTML = `
     <h2 class="section-title">এই মাসের সারসংক্ষেপ</h2>
+    ${trialBanner}
     <div class="cards-grid">
       <div class="stat-card pos"><div class="label">আয়</div><div class="value">${fmt(income)}</div></div>
       <div class="stat-card neg"><div class="label">ব্যয়</div><div class="value">${fmt(expense)}</div></div>
@@ -1232,6 +1280,83 @@ window.permanentDeleteProduct = async function(id){
   state.products = state.products.filter(p=>p.id!==id);
   showSaved('স্থায়ীভাবে মুছে ফেলা হয়েছে');
   renderMain();
+};
+
+// ================= ADMIN =================
+async function renderAdmin(el){
+  el.innerHTML = `<div class="loading">লোড হচ্ছে...</div>`;
+  const { data, error } = await sb.from('profiles').select('*').order('created_at',{ascending:false});
+  if(error){ el.innerHTML = `<div class="empty-state">লোড করতে সমস্যা: ${error.message}</div>`; return; }
+  state.allProfiles = data || [];
+  renderAdminList(el);
+}
+function renderAdminList(el){
+  const now = Date.now();
+  el.innerHTML = `
+    <h2 class="section-title">👑 অ্যাডমিন — সব ইউজার</h2>
+    <p style="font-size:.78rem; color:var(--ink-soft); margin:-8px 0 16px;">মোট ইউজার: ${state.allProfiles.length}</p>
+    <div class="entry-list" id="adminList"></div>
+  `;
+  const list = document.getElementById('adminList');
+  list.innerHTML = state.allProfiles.map(p=>{
+    let statusLabel, statusColor;
+    if(p.is_admin){ statusLabel='অ্যাডমিন'; statusColor='gold'; }
+    else if(!p.access_expires_at){ statusLabel='আজীবন'; statusColor='pos'; }
+    else if(new Date(p.access_expires_at).getTime() < now){ statusLabel='মেয়াদ শেষ'; statusColor='neg'; }
+    else { statusLabel='সক্রিয়'; statusColor='pos'; }
+    const expiryStr = p.access_expires_at ? new Date(p.access_expires_at).toLocaleDateString('bn-BD',{year:'numeric',month:'short',day:'numeric'}) : '—';
+    return `
+    <div class="entry" style="flex-direction:column; align-items:stretch; gap:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div class="name">${p.full_name || '(নাম নেই)'}</div>
+          <div class="meta">${p.email||''}</div>
+          <div class="meta">সাইনআপ: ${new Date(p.created_at).toLocaleDateString('bn-BD')}</div>
+        </div>
+        <span class="badge ${statusColor==='gold'?'pay_due':statusColor==='pos'?'income':'expense'}">${statusLabel}${p.access_expires_at && !p.is_admin ? ' · '+expiryStr : ''}</span>
+      </div>
+      ${p.is_admin ? '' : `
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="btn btn-outline" style="flex:1; min-width:80px; font-size:.72rem; padding:8px;" onclick="extendAccess('${p.id}',30)">+১ মাস</button>
+        <button class="btn btn-outline" style="flex:1; min-width:80px; font-size:.72rem; padding:8px;" onclick="extendAccess('${p.id}',365)">+১ বছর</button>
+        <button class="btn btn-outline" style="flex:1; min-width:80px; font-size:.72rem; padding:8px;" onclick="extendAccess('${p.id}',1825)">৫ বছর দিন</button>
+        <button class="btn btn-outline" style="flex:1; min-width:80px; font-size:.72rem; padding:8px;" onclick="setLifetime('${p.id}')">আজীবন</button>
+        <button class="btn btn-outline" style="flex:1; min-width:80px; font-size:.72rem; padding:8px; color:var(--maroon);" onclick="revokeAccess('${p.id}')">এখনই বন্ধ করুন</button>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="date" id="dateFor_${p.id}" style="flex:1;" value="${p.access_expires_at ? new Date(p.access_expires_at).toISOString().slice(0,10) : ''}">
+        <button class="btn btn-primary" style="font-size:.78rem; padding:9px 14px;" onclick="setCustomDate('${p.id}')">সেট করুন</button>
+      </div>
+      `}
+    </div>`;
+  }).join('');
+}
+async function updateUserExpiry(userId, newDateIso){
+  const { data, error } = await sb.from('profiles').update({ access_expires_at: newDateIso }).eq('id', userId).select();
+  if(error){ alert('আপডেট করতে সমস্যা হয়েছে: '+error.message); return; }
+  const idx = state.allProfiles.findIndex(p=>p.id===userId);
+  if(idx>-1) state.allProfiles[idx] = data[0];
+  showSaved('আপডেট হয়েছে');
+  renderAdminList(document.getElementById('main-content'));
+}
+window.extendAccess = function(userId, days){
+  const p = state.allProfiles.find(x=>x.id===userId);
+  const base = (p && p.access_expires_at && new Date(p.access_expires_at).getTime()>Date.now()) ? new Date(p.access_expires_at) : new Date();
+  base.setDate(base.getDate()+days);
+  updateUserExpiry(userId, base.toISOString());
+};
+window.setLifetime = function(userId){
+  if(!confirm('এই ইউজারকে আজীবন (কখনো মেয়াদ শেষ হবে না) অ্যাক্সেস দিতে চান?')) return;
+  updateUserExpiry(userId, null);
+};
+window.revokeAccess = function(userId){
+  if(!confirm('এই ইউজারের অ্যাক্সেস এখনই বন্ধ করতে চান?')) return;
+  updateUserExpiry(userId, new Date(Date.now()-1000).toISOString());
+};
+window.setCustomDate = function(userId){
+  const val = document.getElementById('dateFor_'+userId).value;
+  if(!val){ alert('একটা তারিখ বাছাই করুন'); return; }
+  updateUserExpiry(userId, new Date(val+'T23:59:59').toISOString());
 };
 
 sb.auth.getSession().then(({data})=>{
