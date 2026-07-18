@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ব্লগ — হিসাবের খাতা</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@500;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --paper:#f7f1e3; --paper-dark:#efe3c8; --ink:#2b2420; --ink-soft:#7a6f60;
+    --rule-red:#b5442e; --green:#2f7d5a; --green-bg:#e3f0e8; --maroon:#a13c3c; --maroon-bg:#f7e6e2;
+    --gold:#b3831f; --gold-bg:#f6ecd2; --line:#e2d2a8; --card:#fffdf7; --shadow:0 4px 18px rgba(60,40,20,0.10);
+    --accent-grad:linear-gradient(135deg,#b5442e,#8c2f39);
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--paper); font-family:'Hind Siliguri', sans-serif; color:var(--ink); min-height:100vh;}
+  .wrap{ max-width:1000px; margin:0 auto; padding-bottom:60px;}
+  header.top{
+    padding:20px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+    background:var(--accent-grad); color:#fdf6ea; border-radius:0 0 22px 22px; box-shadow:var(--shadow); margin-bottom:22px;
+  }
+  header.top a.back{ color:#fdf6ea; text-decoration:none; font-size:.82rem; font-weight:600; opacity:.9;}
+  header.top h1{ font-family:'Noto Serif Bengali', serif; font-size:1.4rem; margin:4px 0 0;}
+  header.top p{ margin:2px 0 0; font-size:.78rem; opacity:.85;}
+  .header-right{ display:flex; align-items:center; gap:10px;}
+  .btn{ font-family:'Hind Siliguri',sans-serif; font-weight:700; font-size:.88rem; padding:10px 16px; border-radius:11px; border:none; cursor:pointer;}
+  .btn-primary{ background:#fff; color:var(--rule-red);}
+  .btn-outline{ background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.4); color:#fff;}
+  main{ padding:0 16px;}
+  h2.section-title{ font-family:'Noto Serif Bengali', serif; font-size:1.2rem; margin:0 0 16px;}
+  .loading, .empty-state{ text-align:center; padding:40px 10px; color:var(--ink-soft);}
+
+  /* Feed grid - responsive */
+  .blog-grid{ display:grid; grid-template-columns:1fr; gap:18px;}
+  @media(min-width:640px){ .blog-grid{ grid-template-columns:1fr 1fr; } }
+  @media(min-width:960px){ .blog-grid{ grid-template-columns:1fr 1fr 1fr; } }
+  .blog-card{ background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:var(--shadow); cursor:pointer; transition:.15s; display:flex; flex-direction:column;}
+  .blog-card:hover, .blog-card:active{ transform:translateY(-2px);}
+  .blog-card .thumb{ width:100%; aspect-ratio:16/9; object-fit:cover; background:var(--paper-dark);}
+  .blog-card .thumb.placeholder{ display:flex; align-items:center; justify-content:center; font-size:2.4rem;}
+  .blog-card .body{ padding:14px 16px 16px; flex:1; display:flex; flex-direction:column;}
+  .blog-card .blog-title{ font-family:'Noto Serif Bengali',serif; font-size:1.05rem; font-weight:700; margin-bottom:6px; line-height:1.4;}
+  .blog-card .blog-meta{ font-size:.72rem; color:var(--ink-soft); margin-bottom:8px;}
+  .blog-card .blog-snippet{ font-size:.85rem; color:var(--ink-soft); line-height:1.6; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; flex:1;}
+
+  /* Detail */
+  .back-btn{ background:none; border:none; color:var(--ink-soft); font-size:.9rem; font-weight:600; cursor:pointer; padding:0 0 16px 0; display:block;}
+  .blog-detail{ background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); padding:22px 20px 30px; margin-bottom:30px;}
+  .blog-detail-title{ font-family:'Noto Serif Bengali',serif; font-size:1.6rem; font-weight:700; line-height:1.4; margin:4px 0 8px;}
+  .blog-detail-meta{ font-size:.8rem; color:var(--ink-soft); margin-bottom:20px; padding-bottom:16px; border-bottom:2px solid var(--line); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
+  .blog-detail-content{ font-size:1.02rem; line-height:1.9; color:var(--ink);}
+  .blog-detail-content img, .blog-detail-content video{ max-width:100%; border-radius:12px; margin:14px 0; display:block;}
+  .blog-detail-content audio{ width:100%; margin:14px 0;}
+  .blog-detail-content h2{ font-family:'Noto Serif Bengali',serif; margin:22px 0 10px;}
+  .blog-detail-content h3{ font-family:'Noto Serif Bengali',serif; margin:18px 0 8px;}
+  .blog-detail-content blockquote{ border-left:4px solid var(--rule-red); margin:16px 0; padding:6px 16px; color:var(--ink-soft); font-style:italic; background:var(--paper);}
+  .blog-detail-content ul, .blog-detail-content ol{ padding-left:22px;}
+
+  /* Editor */
+  .editor-card{ background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); padding:20px; margin-bottom:30px;}
+  .editor-title-input{ width:100%; font-family:'Noto Serif Bengali',serif; font-size:1.3rem; font-weight:700; border:none; border-bottom:2px solid var(--line); padding:8px 0 14px; margin-bottom:16px; background:transparent; color:var(--ink);}
+  .editor-title-input:focus{ outline:none; border-color:var(--rule-red);}
+  .toolbar{ display:flex; gap:6px; flex-wrap:wrap; padding:10px; background:var(--paper); border-radius:12px; margin-bottom:14px;}
+  .tb-btn{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px 11px; font-size:.9rem; cursor:pointer; color:var(--ink); font-weight:600; line-height:1;}
+  .tb-btn:active{ background:var(--paper-dark);}
+  .tb-sep{ width:1px; background:var(--line); margin:0 4px;}
+  .editor-content{ min-height:280px; border:1px solid var(--line); border-radius:12px; padding:16px; font-size:1rem; line-height:1.8; background:#fff;}
+  .editor-content:focus{ outline:none; border-color:var(--rule-red);}
+  .editor-content img, .editor-content video{ max-width:100%; border-radius:10px; margin:10px 0; display:block;}
+  .editor-content audio{ width:100%; margin:10px 0;}
+  .editor-actions{ display:flex; gap:10px; margin-top:16px;}
+  .editor-actions .btn{ flex:1; padding:13px; border-radius:11px; font-size:.92rem;}
+  .btn-publish{ background:var(--accent-grad); color:#fff;}
+  .btn-cancel-edit{ background:transparent; border:1px solid var(--line); color:var(--ink-soft);}
+  .upload-progress{ font-size:.78rem; color:var(--gold); margin-bottom:8px; min-height:1.1em;}
+  .fab{ position:fixed; bottom:20px; right:20px; width:58px; height:58px; border-radius:50%; background:var(--accent-grad); color:#fff; border:none; font-size:1.6rem; box-shadow:0 6px 18px rgba(161,60,60,.4); cursor:pointer; z-index:40;}
+  .locked-note{ text-align:center; padding:30px 16px; background:var(--paper); border:1px dashed var(--line); border-radius:14px; color:var(--ink-soft); font-size:.85rem; margin-bottom:24px;}
+  .save-status{ position:fixed; top:14px; right:14px; background:var(--accent-grad); color:#fff; padding:8px 16px; border-radius:20px; font-size:.75rem; opacity:0; transition:.3s; z-index:50; box-shadow:var(--shadow);}
+  .save-status.show{ opacity:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <a class="back" href="index.html">← হিসাবের খাতা</a>
+      <h1>📝 ব্লগ</h1>
+      <p id="userLabel"></p>
+    </div>
+    <div class="header-right" id="headerActions"></div>
+  </header>
+  <main id="main-content"><div class="loading">লোড হচ্ছে...</div></main>
+</div>
+<button class="fab" id="newPostFab" style="display:none;" title="নতুন পোস্ট">✎</button>
+<div class="save-status" id="saveStatus">সংরক্ষণ হয়েছে</div>
+
+<script>
+const SUPABASE_URL = "https://gzywvnicquoalzejfpxv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_xn1ztsAMI7SJrbi3xf0psw_SFCyUQ6I";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let state = { user:null, profile:null, posts:[], view:'feed', detailId:null, editingId:null };
+
+function showSaved(msg){ const el=document.getElementById('saveStatus'); el.textContent=msg||'সংরক্ষণ হয়েছে'; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1400); }
+function canPost(){ return !!(state.profile && (state.profile.is_admin || state.profile.can_post)); }
+function stripHtml(html){ const d=document.createElement('div'); d.innerHTML=html; return (d.textContent||'').trim(); }
+function firstImage(html){ const d=document.createElement('div'); d.innerHTML=html; const img=d.querySelector('img'); return img?img.getAttribute('src'):null; }
+function sanitizeHtml(html){
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  div.querySelectorAll('script,iframe,object,embed,link,style').forEach(el=>el.remove());
+  div.querySelectorAll('*').forEach(el=>{
+    [...el.attributes].forEach(attr=>{ if(/^on/i.test(attr.name)) el.removeAttribute(attr.name); });
+  });
+  return div.innerHTML;
+}
+
+async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){
+    document.getElementById('main-content').innerHTML = `<div class="empty-state">লগইন প্রয়োজন। <a href="index.html">এখানে লগইন করুন</a>, তারপর আবার এই পেজে আসুন।</div>`;
+    return;
+  }
+  state.user = session.user;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', state.user.id).maybeSingle();
+  state.profile = profile;
+  document.getElementById('userLabel').textContent = state.user.email + (canPost() ? ' · পোস্ট করার অনুমতি আছে' : ' · শুধু পড়ার অনুমতি');
+  document.getElementById('headerActions').innerHTML = `<button class="btn btn-outline" id="logoutBtn">লগআউট</button>`;
+  document.getElementById('logoutBtn').addEventListener('click', async ()=>{ await sb.auth.signOut(); window.location.href='index.html'; });
+  if(canPost()) document.getElementById('newPostFab').style.display='flex';
+  document.getElementById('newPostFab').style.cssText += 'align-items:center;justify-content:center;display:flex;';
+  document.getElementById('newPostFab').addEventListener('click', ()=>{ state.editingId=null; renderEditor(); });
+  await loadPosts();
+  renderFeed();
+}
+
+async function loadPosts(){
+  const { data, error } = await sb.from('blog_posts').select('*').order('created_at',{ascending:false}).limit(60);
+  state.posts = data || [];
+}
+
+function renderFeed(){
+  const el = document.getElementById('main-content');
+  el.innerHTML = `
+    <h2 class="section-title">সাম্প্রতিক পোস্ট</h2>
+    ${!canPost() ? `<div class="locked-note">✍️ আপনার এই মুহূর্তে পোস্ট করার অনুমতি নেই — শুধু পড়তে পারবেন। অনুমতি পেতে অ্যাডমিনের সাথে যোগাযোগ করুন।</div>` : ''}
+    <div class="blog-grid" id="feedGrid"></div>
+  `;
+  const grid = document.getElementById('feedGrid');
+  if(!state.posts.length){ grid.innerHTML = `<div class="empty-state">এখনো কোনো পোস্ট নেই।</div>`; return; }
+  grid.innerHTML = state.posts.map(p=>{
+    const thumb = firstImage(p.content);
+    return `
+    <div class="blog-card" data-id="${p.id}">
+      ${thumb ? `<img class="thumb" src="${thumb}" loading="lazy">` : `<div class="thumb placeholder">📝</div>`}
+      <div class="body">
+        <div class="blog-title">${p.title}</div>
+        <div class="blog-meta">${p.author_name||'অজানা'} · ${new Date(p.created_at).toLocaleDateString('bn-BD',{year:'numeric',month:'short',day:'numeric'})}</div>
+        <div class="blog-snippet">${stripHtml(p.content).slice(0,160)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('[data-id]').forEach(card=>{
+    card.addEventListener('click', ()=>{ state.detailId = card.dataset.id; renderDetail(); });
+  });
+}
+
+function renderDetail(){
+  const p = state.posts.find(x=>x.id===state.detailId);
+  const el = document.getElementById('main-content');
+  if(!p){ renderFeed(); return; }
+  const isOwner = state.user && p.user_id===state.user.id;
+  const canManage = isOwner || (state.profile && state.profile.is_admin);
+  el.innerHTML = `
+    <button class="back-btn" id="detailBack">← সব পোস্টে ফিরুন</button>
+    <div class="blog-detail">
+      <div class="blog-detail-title">${p.title}</div>
+      <div class="blog-detail-meta">
+        <span>${p.author_name||'অজানা'} · ${new Date(p.created_at).toLocaleDateString('bn-BD',{year:'numeric',month:'short',day:'numeric'})}</span>
+        ${canManage ? `<span style="display:flex; gap:8px;">
+          <button class="btn btn-outline" style="color:var(--ink); border-color:var(--line); padding:7px 12px; font-size:.75rem;" id="editPostBtn">✏️ এডিট</button>
+          <button class="btn btn-outline" style="color:var(--maroon); border-color:var(--line); padding:7px 12px; font-size:.75rem;" id="deletePostBtn">🗑 মুছুন</button>
+        </span>` : ''}
+      </div>
+      <div class="blog-detail-content">${p.content}</div>
+    </div>
+  `;
+  document.getElementById('detailBack').addEventListener('click', ()=>{ state.detailId=null; renderFeed(); });
+  if(canManage){
+    document.getElementById('editPostBtn').addEventListener('click', ()=>{ state.editingId = p.id; renderEditor(); });
+    document.getElementById('deletePostBtn').addEventListener('click', async ()=>{
+      if(!confirm('এই পোস্টটি স্থায়ীভাবে মুছে ফেলতে চান?')) return;
+      const { error } = await sb.from('blog_posts').delete().eq('id', p.id);
+      if(error){ alert('মুছা যায়নি: '+error.message); return; }
+      state.posts = state.posts.filter(x=>x.id!==p.id);
+      state.detailId = null;
+      showSaved('পোস্ট মুছে ফেলা হয়েছে');
+      renderFeed();
+    });
+  }
+}
+
+let savedRange = null;
+function renderEditor(){
+  if(!canPost()){ renderFeed(); return; }
+  const editing = state.editingId ? state.posts.find(p=>p.id===state.editingId) : null;
+  const el = document.getElementById('main-content');
+  el.innerHTML = `
+    <button class="back-btn" id="editorBack">← বাতিল করে ফিরুন</button>
+    <div class="editor-card">
+      <input type="text" class="editor-title-input" id="editorTitle" placeholder="পোস্টের শিরোনাম লিখুন..." value="${editing?editing.title.replace(/"/g,'&quot;'):''}">
+      <div class="toolbar">
+        <button type="button" class="tb-btn" data-cmd="bold"><b>B</b></button>
+        <button type="button" class="tb-btn" data-cmd="italic"><i>I</i></button>
+        <button type="button" class="tb-btn" data-cmd="underline"><u>U</u></button>
+        <div class="tb-sep"></div>
+        <button type="button" class="tb-btn" data-block="h2">H2</button>
+        <button type="button" class="tb-btn" data-block="h3">H3</button>
+        <button type="button" class="tb-btn" data-block="blockquote">❝</button>
+        <button type="button" class="tb-btn" data-block="p">¶</button>
+        <div class="tb-sep"></div>
+        <button type="button" class="tb-btn" data-cmd="insertUnorderedList">• তালিকা</button>
+        <button type="button" class="tb-btn" data-cmd="insertOrderedList">1. তালিকা</button>
+        <div class="tb-sep"></div>
+        <button type="button" class="tb-btn" id="insertImageBtn">🖼️ ছবি</button>
+        <button type="button" class="tb-btn" id="insertVideoBtn">🎬 ভিডিও</button>
+        <button type="button" class="tb-btn" id="insertAudioBtn">🎵 অডিও</button>
+      </div>
+      <div class="upload-progress" id="uploadProgress"></div>
+      <div class="editor-content" id="editorContent" contenteditable="true">${editing?editing.content:''}</div>
+      <div class="editor-actions">
+        <button class="btn btn-publish" id="publishBtn">${editing?'আপডেট প্রকাশ করুন':'প্রকাশ করুন'}</button>
+        <button class="btn btn-cancel-edit" id="cancelEditBtn">বাতিল</button>
+      </div>
+    </div>
+    <input type="file" id="fileImage" accept="image/*" style="display:none;">
+    <input type="file" id="fileVideo" accept="video/*" style="display:none;">
+    <input type="file" id="fileAudio" accept="audio/*" style="display:none;">
+  `;
+  const contentEl = document.getElementById('editorContent');
+  ['mouseup','keyup'].forEach(evt=>contentEl.addEventListener(evt, ()=>{
+    const sel = window.getSelection();
+    if(sel.rangeCount>0) savedRange = sel.getRangeAt(0);
+  }));
+
+  document.getElementById('editorBack').addEventListener('click', ()=>{ state.editingId=null; state.detailId? renderDetail(): renderFeed(); });
+  document.getElementById('cancelEditBtn').addEventListener('click', ()=>{ state.editingId=null; state.detailId? renderDetail(): renderFeed(); });
+
+  el.querySelectorAll('.tb-btn[data-cmd]').forEach(btn=>{
+    btn.addEventListener('mousedown', e=>e.preventDefault());
+    btn.addEventListener('click', ()=>{ restoreSelection(); document.execCommand(btn.dataset.cmd, false, null); });
+  });
+  el.querySelectorAll('.tb-btn[data-block]').forEach(btn=>{
+    btn.addEventListener('mousedown', e=>e.preventDefault());
+    btn.addEventListener('click', ()=>{ restoreSelection(); document.execCommand('formatBlock', false, btn.dataset.block); });
+  });
+
+  document.getElementById('insertImageBtn').addEventListener('mousedown', e=>e.preventDefault());
+  document.getElementById('insertVideoBtn').addEventListener('mousedown', e=>e.preventDefault());
+  document.getElementById('insertAudioBtn').addEventListener('mousedown', e=>e.preventDefault());
+  document.getElementById('insertImageBtn').addEventListener('click', ()=>document.getElementById('fileImage').click());
+  document.getElementById('insertVideoBtn').addEventListener('click', ()=>document.getElementById('fileVideo').click());
+  document.getElementById('insertAudioBtn').addEventListener('click', ()=>document.getElementById('fileAudio').click());
+
+  document.getElementById('fileImage').addEventListener('change', e=>handleUpload(e.target.files[0], 'image'));
+  document.getElementById('fileVideo').addEventListener('change', e=>handleUpload(e.target.files[0], 'video'));
+  document.getElementById('fileAudio').addEventListener('change', e=>handleUpload(e.target.files[0], 'audio'));
+
+  document.getElementById('publishBtn').addEventListener('click', ()=>publishPost(editing));
+}
+
+function restoreSelection(){
+  const contentEl = document.getElementById('editorContent');
+  contentEl.focus();
+  if(savedRange){
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+  }
+}
+
+async function handleUpload(file, kind){
+  if(!file) return;
+  const progressEl = document.getElementById('uploadProgress');
+  progressEl.textContent = `আপলোড হচ্ছে... (${file.name})`;
+  const path = `${state.user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+  const { data, error } = await sb.storage.from('blog-media').upload(path, file);
+  if(error){ progressEl.textContent = ''; alert('আপলোড ব্যর্থ হয়েছে: '+error.message); return; }
+  const { data: urlData } = sb.storage.from('blog-media').getPublicUrl(path);
+  const url = urlData.publicUrl;
+  let html = '';
+  if(kind==='image') html = `<img src="${url}" alt="">`;
+  else if(kind==='video') html = `<video src="${url}" controls></video>`;
+  else if(kind==='audio') html = `<audio src="${url}" controls></audio>`;
+  restoreSelection();
+  document.execCommand('insertHTML', false, html);
+  progressEl.textContent = '✅ আপলোড সম্পন্ন হয়েছে';
+  setTimeout(()=>{ progressEl.textContent=''; }, 2000);
+}
+
+async function publishPost(editing){
+  const title = document.getElementById('editorTitle').value.trim();
+  const rawContent = document.getElementById('editorContent').innerHTML.trim();
+  if(!title || !rawContent){ alert('শিরোনাম ও লেখা দুটোই দিন'); return; }
+  const content = sanitizeHtml(rawContent);
+  if(editing){
+    const { data, error } = await sb.from('blog_posts').update({ title, content, updated_at:new Date().toISOString() }).eq('id', editing.id).select();
+    if(error){ alert('সমস্যা হয়েছে: '+error.message); return; }
+    const idx = state.posts.findIndex(p=>p.id===editing.id);
+    if(idx>-1) state.posts[idx] = data[0];
+    state.editingId = null; state.detailId = data[0].id;
+    showSaved('আপডেট হয়েছে');
+    renderDetail();
+  } else {
+    const authorName = (state.profile && state.profile.full_name) ? state.profile.full_name : state.user.email.split('@')[0];
+    const { data, error } = await sb.from('blog_posts').insert({ user_id: state.user.id, author_name: authorName, title, content }).select();
+    if(error){ alert('সমস্যা হয়েছে: '+error.message); return; }
+    state.posts.unshift(data[0]);
+    showSaved('পোস্ট প্রকাশ হয়েছে');
+    state.detailId = data[0].id;
+    renderDetail();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
