@@ -139,6 +139,10 @@
   .pin-key:active{ background:var(--paper-dark);}
   .pin-key.wide{ font-size:.85rem; color:var(--ink-soft);}
   .pin-error{ color:var(--maroon); font-size:.78rem; min-height:1.2em; margin-bottom:8px;}
+  .contact-box{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:16px;}
+  .contact-row{ display:flex; align-items:center; gap:10px; padding:8px 0; text-decoration:none; color:var(--ink); font-size:.88rem; font-weight:600;}
+  .contact-row .icon{ font-size:1.1rem;}
+  .contact-note{ font-size:.8rem; color:var(--ink-soft); line-height:1.6; margin-top:8px; white-space:pre-wrap;}
   /* Blog */
   .blog-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; cursor:pointer; transition:.15s;}
   .blog-card:active{ transform:scale(.99);}
@@ -194,11 +198,12 @@
 </div>
 
 <div id="expiredScreen" class="pin-wrap" style="display:none;">
-  <div class="pin-card">
-    <div class="lock-icon">⏳</div>
-    <h2>মেয়াদ শেষ হয়ে গেছে</h2>
-    <p>আপনার ট্রায়াল বা সাবস্ক্রিপশনের মেয়াদ শেষ হয়ে গেছে। চালিয়ে যেতে হলে অ্যাপ পরিচালকের সাথে যোগাযোগ করুন।</p>
-    <button class="btn btn-outline btn-block" id="expiredLogoutBtn">লগআউট করুন</button>
+  <div class="pin-card" style="max-width:380px; text-align:left;">
+    <div class="lock-icon" style="text-align:center;">⏳</div>
+    <h2 style="text-align:center;">মেয়াদ শেষ হয়ে গেছে</h2>
+    <p style="text-align:center;">আপনার ট্রায়াল বা সাবস্ক্রিপশনের মেয়াদ শেষ হয়ে গেছে।</p>
+    <div id="expiredContactBox"></div>
+    <button class="btn btn-outline btn-block" id="expiredLogoutBtn" style="margin-top:16px;">লগআউট করুন</button>
   </div>
 </div>
 
@@ -279,7 +284,7 @@ const CONTACT_TYPE_LABEL = { customer:'কাস্টমার', supplier:'স�
 
 let state = {
   active:'dashboard', user:null, contactDetailId:null, settings:null, pinUnlocked:false, editingTxnId:null,
-  editingAccountId:null, editingContactId:null, editingProductId:null, profile:null, profileError:null, allProfiles:[],
+  editingAccountId:null, editingContactId:null, editingProductId:null, profile:null, profileError:null, allProfiles:[], appConfig:null,
   accounts:[], categories:[], contacts:[], products:[], transactions:[], trash:[], loaded:false,
   blogPosts:[], blogLoaded:false, blogPostDetailId:null, editingBlogPostId:null,
 };
@@ -386,6 +391,21 @@ function isAccessExpired(){
 function showExpiredScreen(){
   document.getElementById('pinScreen').style.display='none';
   document.getElementById('mainApp').style.display='none';
+  const box = document.getElementById('expiredContactBox');
+  const cfg = state.appConfig;
+  if(cfg && (cfg.contact_phone || cfg.contact_whatsapp || cfg.contact_email || cfg.payment_instructions)){
+    box.innerHTML = `
+      <div class="contact-box">
+        <div style="font-weight:700; font-size:.85rem; margin-bottom:4px;">চালিয়ে যেতে যোগাযোগ করুন:</div>
+        ${cfg.contact_phone ? `<a class="contact-row" href="tel:${cfg.contact_phone}"><span class="icon">📞</span> ${cfg.contact_phone}</a>` : ''}
+        ${cfg.contact_whatsapp ? `<a class="contact-row" href="https://wa.me/${cfg.contact_whatsapp.replace(/[^0-9]/g,'')}" target="_blank"><span class="icon">💬</span> হোয়াটসঅ্যাপ: ${cfg.contact_whatsapp}</a>` : ''}
+        ${cfg.contact_email ? `<a class="contact-row" href="mailto:${cfg.contact_email}"><span class="icon">✉️</span> ${cfg.contact_email}</a>` : ''}
+        ${cfg.payment_instructions ? `<div class="contact-note">${cfg.payment_instructions}</div>` : ''}
+      </div>
+    `;
+  } else {
+    box.innerHTML = `<div class="contact-note" style="text-align:center;">চালিয়ে যেতে হলে অ্যাপ পরিচালকের সাথে যোগাযোগ করুন।</div>`;
+  }
   document.getElementById('expiredScreen').style.display='flex';
 }
 
@@ -408,7 +428,7 @@ async function ensureDefaults(){
 
 async function loadAll(){
   const uid = state.user.id;
-  const [a,c,ct,p,t,s,tr,pr] = await Promise.all([
+  const [a,c,ct,p,t,s,tr,pr,ac] = await Promise.all([
     sb.from('accounts').select('*').eq('user_id',uid).order('created_at'),
     sb.from('categories').select('*').eq('user_id',uid).order('category_type'),
     sb.from('contacts').select('*').eq('user_id',uid).order('contact_name'),
@@ -417,12 +437,14 @@ async function loadAll(){
     sb.from('settings').select('*').eq('user_id',uid).maybeSingle(),
     sb.from('transactions').select('*, transaction_items(*)').eq('user_id',uid).not('deleted_at','is',null).order('deleted_at',{ascending:false}),
     sb.from('profiles').select('*').eq('id',uid).maybeSingle(),
+    sb.from('app_config').select('*').eq('id',1).maybeSingle(),
   ]);
   state.accounts=a.data||[]; state.categories=c.data||[]; state.contacts=ct.data||[]; state.products=p.data||[]; state.transactions=t.data||[];
   state.trash = tr.data||[];
   state.settings = s.data || null;
   state.profile = pr.data || null;
   state.profileError = pr.error || null;
+  state.appConfig = ac.data || null;
   if(!state.settings){
     const { data: ns } = await sb.from('settings').insert({ user_id: uid }).select().maybeSingle();
     state.settings = ns;
@@ -595,7 +617,9 @@ function renderDashboard(el){
   if(state.profile && !state.profile.is_admin && state.profile.access_expires_at){
     const daysLeft = Math.ceil((new Date(state.profile.access_expires_at).getTime()-Date.now())/(24*60*60*1000));
     if(daysLeft <= 7){
-      trialBanner = `<div class="stat-card neg" style="margin-bottom:16px;"><div class="label">⏳ মেয়াদ</div><div class="value" style="font-size:.95rem;">আপনার মেয়াদ ${daysLeft>0?daysLeft+' দিন পর':'আজ'} শেষ হবে</div></div>`;
+      const cfg = state.appConfig;
+      const hint = cfg && cfg.contact_phone ? ` · নবায়নে কল করুন: ${cfg.contact_phone}` : '';
+      trialBanner = `<div class="stat-card neg" style="margin-bottom:16px;"><div class="label">⏳ মেয়াদ</div><div class="value" style="font-size:.95rem;">আপনার মেয়াদ ${daysLeft>0?daysLeft+' দিন পর':'আজ'} শেষ হবে${hint}</div></div>`;
     }
   }
   const monthTx = state.transactions.filter(t=>t.transaction_date && t.transaction_date.startsWith(curMonth));
@@ -1312,11 +1336,35 @@ async function renderAdmin(el){
 }
 function renderAdminList(el){
   const now = Date.now();
+  const cfg = state.appConfig || {};
   el.innerHTML = `
     <h2 class="section-title">👑 অ্যাডমিন — সব ইউজার</h2>
-    <p style="font-size:.78rem; color:var(--ink-soft); margin:-8px 0 16px;">মোট ইউজার: ${state.allProfiles.length}</p>
+    <form class="entry-form" id="configForm">
+      <h3 class="sub-title" style="margin-top:0;">মেয়াদ-শেষ স্ক্রিনে দেখানো যোগাযোগ/পেমেন্ট তথ্য</h3>
+      <div><label>ফোন নাম্বার</label><input type="text" name="contact_phone" value="${cfg.contact_phone||''}" placeholder="01xxxxxxxxx"></div>
+      <div><label>হোয়াটসঅ্যাপ নাম্বার</label><input type="text" name="contact_whatsapp" value="${cfg.contact_whatsapp||''}" placeholder="8801xxxxxxxxx"></div>
+      <div><label>ইমেইল</label><input type="email" name="contact_email" value="${cfg.contact_email||''}" placeholder="you@example.com"></div>
+      <div><label>পেমেন্ট নির্দেশনা</label><textarea name="payment_instructions" placeholder="যেমন: বিকাশে ০১xxxxxxxxx নাম্বারে সেন্ড মানি করে স্ক্রিনশট পাঠান">${cfg.payment_instructions||''}</textarea></div>
+      <button class="btn btn-primary" type="submit">সংরক্ষণ করুন</button>
+    </form>
+    <p style="font-size:.78rem; color:var(--ink-soft); margin:16px 0;">মোট ইউজার: ${state.allProfiles.length}</p>
     <div class="entry-list" id="adminList"></div>
   `;
+  document.getElementById('configForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = {
+      contact_phone: fd.get('contact_phone')||null,
+      contact_whatsapp: fd.get('contact_whatsapp')||null,
+      contact_email: fd.get('contact_email')||null,
+      payment_instructions: fd.get('payment_instructions')||null,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await sb.from('app_config').update(payload).eq('id',1).select().maybeSingle();
+    if(error){ alert('সমস্যা হয়েছে: '+error.message); return; }
+    state.appConfig = data;
+    showSaved('তথ্য সংরক্ষণ হয়েছে');
+  });
   const list = document.getElementById('adminList');
   list.innerHTML = state.allProfiles.map(p=>{
     let statusLabel, statusColor;
