@@ -33,9 +33,21 @@
   header.top .brand-icon{ font-size:1.6rem; }
   header.top h1{ font-family:'Noto Serif Bengali', serif; font-size:1.35rem; margin:0; letter-spacing:.2px;}
   header.top p{ margin:2px 0 0; font-size:.78rem; opacity:.85;}
-  .header-actions{ display:flex; gap:8px;}
+  .header-actions{ display:flex; gap:8px; align-items:center;}
   .icon-round{ background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:1rem; color:#fff; cursor:pointer;}
   .logout-btn{ background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.35); border-radius:20px; padding:7px 14px; font-size:.75rem; color:#fff; cursor:pointer; font-weight:600;}
+  .lang-toggle{ display:flex; background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); border-radius:20px; padding:3px; gap:2px;}
+  .lang-toggle button{ border:none; background:transparent; color:#fdf6ea; font-size:.68rem; font-weight:700; padding:5px 9px; border-radius:16px; cursor:pointer; font-family:'Hind Siliguri',sans-serif;}
+  .lang-toggle button.active{ background:#fff; color:var(--rule-red);}
+  .qa-btn-wrap{ position:relative; display:flex; width:100%; }
+  .qa-btn-wrap .qa-btn{ flex:1; width:100%; }
+  .qa-info-btn{ position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%; background:#fff; border:1px solid var(--line); color:var(--ink-soft); font-size:.62rem; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 1px 3px rgba(60,40,20,.15); z-index:2;}
+  .modal-overlay{ position:fixed; inset:0; background:rgba(30,20,10,.5); display:flex; align-items:flex-end; justify-content:center; z-index:999;}
+  .modal-overlay .modal-sheet{ background:var(--card); width:100%; max-width:720px; border-radius:18px 18px 0 0; padding:20px 18px 26px; max-height:82vh; overflow-y:auto; box-shadow:0 -6px 24px rgba(0,0,0,.2);}
+  .modal-sheet h3{ font-family:'Noto Serif Bengali', serif; margin:0 0 12px; font-size:1.05rem; display:flex; justify-content:space-between; align-items:center; gap:10px;}
+  .modal-sheet .modal-close{ background:var(--paper); border:1px solid var(--line); border-radius:50%; width:30px; height:30px; font-size:.9rem; cursor:pointer; flex:0 0 auto;}
+  .modal-sheet .modal-body{ font-size:.88rem; line-height:1.7; color:var(--ink);}
+  .party-toggle-link{ background:none; border:none; color:var(--rule-red); font-size:.8rem; font-weight:700; cursor:pointer; padding:6px 0; text-align:left;}
   .tabs{ display:flex; gap:8px; padding:0 14px 14px; overflow-x:auto; scrollbar-width:none;}
   .tabs::-webkit-scrollbar{display:none;}
   .tab-btn{ flex:0 0 auto; font-family:'Hind Siliguri',sans-serif; font-weight:600; font-size:.82rem; padding:10px 16px; background:var(--card); border:1px solid var(--line); border-radius:24px; color:var(--ink-soft); cursor:pointer; transition:.15s; display:flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(60,40,20,.05);}
@@ -259,8 +271,12 @@
       </div>
     </div>
     <div class="header-actions">
+      <div class="lang-toggle" id="langToggle">
+        <button type="button" data-lang="bn">বাং</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
       <button class="icon-round" id="settingsBtn" title="সেটিংস">⚙</button>
-      <button class="logout-btn" id="logoutBtn">লগআউট</button>
+      <button class="logout-btn" id="logoutBtn"></button>
     </div>
   </header>
   <nav class="tabs" id="tabs"></nav>
@@ -274,34 +290,180 @@ const SUPABASE_KEY = "sb_publishable_xn1ztsAMI7SJrbi3xf0psw_SFCyUQ6I";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 console.log('হিসাবের খাতা — build: admin-v1');
 
+const STR = {
+  tab_dashboard:{bn:'ড্যাশবোর্ড',en:'Dashboard'}, tab_transactions:{bn:'লেনদেন',en:'Transactions'},
+  tab_report:{bn:'রিপোর্ট',en:'Report'}, tab_accounts:{bn:'হিসাব',en:'Accounts'},
+  tab_contacts:{bn:'পার্টি',en:'Parties'}, tab_products:{bn:'পণ্য',en:'Products'}, tab_blog:{bn:'ব্লগ',en:'Blog'},
+  logout:{bn:'লগআউট',en:'Logout'}, logout_wait:{bn:'...',en:'...'},
+  saved_default:{bn:'সংরক্ষণ হয়েছে',en:'Saved'},
+
+  dash_title:{bn:'এই মাসের সারসংক্ষেপ',en:"This Month's Summary"},
+  card_income:{bn:'আয়',en:'Income'}, card_expense:{bn:'ব্যয়',en:'Expense'},
+  card_sale:{bn:'বিক্রয়',en:'Sales'}, card_purchase:{bn:'ক্রয়',en:'Purchases'},
+  card_receivable:{bn:'মোট পাওনা',en:'Total Receivable'}, card_payable:{bn:'মোট দেনা',en:'Total Payable'},
+
+  stmt_title:{bn:'হিসাব / পার্টির স্টেটমেন্ট',en:'Account / Party Statement'},
+  stmt_from:{bn:'থেকে',en:'From'}, stmt_to:{bn:'পর্যন্ত',en:'To'}, stmt_view:{bn:'স্টেটমেন্ট দেখুন',en:'View Statement'},
+  stmt_select_prompt:{bn:'একটি হিসাব বা পার্টি নির্বাচন করুন',en:'Select an account or party'},
+  stmt_group_accounts:{bn:'হিসাব',en:'Accounts'}, stmt_group_contacts:{bn:'পার্টি',en:'Parties'},
+  stmt_opening:{bn:'শুরুর ব্যালেন্স',en:'Opening Balance'},
+  stmt_no_entries:{bn:'এই সময়সীমায় কোনো এন্ট্রি নেই',en:'No entries in this period'},
+  stmt_dr_acc:{bn:'জমা',en:'Deposit'}, stmt_cr_acc:{bn:'উত্তোলন',en:'Withdrawal'},
+  stmt_dr_con:{bn:'দিলাম (Dr)',en:'Gave (Dr)'}, stmt_cr_con:{bn:'পেলাম (Cr)',en:'Received (Cr)'},
+  stmt_balance_label:{bn:'ব্যালেন্স',en:'Balance'},
+  stmt_you_get:{bn:'আপনি পাবেন',en:'You will receive'}, stmt_you_owe:{bn:'আপনি দেবেন',en:'You owe'},
+  stmt_pos_balance:{bn:'ব্যালেন্স',en:'Balance'}, stmt_neg_balance:{bn:'ঋণাত্মক ব্যালেন্স',en:'Negative Balance'},
+  stmt_not_found:{bn:'খুঁজে পাওয়া যায়নি',en:'Not found'},
+
+  total_balance_label:{bn:'সব হিসাবে মোট ব্যালেন্স',en:'Total Balance (All Accounts)'},
+  acc_balance_subtitle:{bn:'হিসাব অনুযায়ী ব্যালেন্স',en:'Balance by Account'},
+  no_accounts:{bn:'কোনো হিসাব দেখানোর মতো নেই',en:'No accounts to show'},
+  low_stock:{bn:'⚠ কম স্টক',en:'⚠ Low Stock'},
+
+  qa_title_new:{bn:'দ্রুত এন্ট্রি',en:'Quick Entry'}, qa_title_edit:{bn:'✏️ লেনদেন সম্পাদনা',en:'✏️ Edit Transaction'},
+  qa_date:{bn:'তারিখ',en:'Date'}, qa_account:{bn:'হিসাব',en:'Account'},
+  qa_new_account_opt:{bn:'➕ নতুন হিসাব যোগ করুন',en:'➕ Add New Account'},
+  qa_new_account_name:{bn:'নতুন হিসাবের নাম',en:'New Account Name'}, qa_new_account_type:{bn:'ধরন',en:'Type'},
+  qa_party_label:{bn:'পার্টি (ঐচ্ছিক)',en:'Party (optional)'},
+  qa_party_none:{bn:'— কোনো পার্টি না —',en:'— No Party —'},
+  qa_party_add_link:{bn:'+ পার্টি যুক্ত করুন',en:'+ Add a Party'},
+  qa_party_remove_link:{bn:'− পার্টি সরান',en:'− Remove Party'},
+  qa_amount:{bn:'পরিমাণ (৳)',en:'Amount (৳)'}, qa_note:{bn:'নোট (ঐচ্ছিক)',en:'Note (optional)'},
+  qa_full_cash:{bn:'সম্পূর্ণ নগদে (ক্রয়/বিক্রয়ের ক্ষেত্রে প্রযোজ্য)',en:'Fully in cash (applies to purchase/sale)'},
+  qa_type_label:{bn:'এন্ট্রির ধরন',en:'Entry type'},
+  qa_type_hint:{bn:'(ধরন বদলাতে চাইলে এটি ট্র্যাশে দিয়ে নতুন করে যোগ করুন)',en:'(To change the type, trash this entry and add a new one)'},
+  qa_update_btn:{bn:'আপডেট করুন',en:'Update'}, qa_cancel_btn:{bn:'বাতিল',en:'Cancel'},
+  qa_hint:{bn:'💡 <b>বাকি</b> = জিনিস/সেবার বাকি (যেমন বাকিতে চা) · <b>ধার</b> = নগদ টাকা ধার · <b>বকেয়া আদায়/শোধ</b> = আগের যেকোনো বাকি/ধার মেটানো',en:'💡 <b>Baki</b> = credit for goods/services (e.g. tea on credit) · <b>Dhar</b> = cash loan · <b>Due Collected/Paid</b> = settling any earlier baki/dhar'},
+  recent_txns:{bn:'সাম্প্রতিক লেনদেন',en:'Recent Transactions'},
+  trash_btn:{bn:'🗑 ট্র্যাশ',en:'🗑 Trash'},
+  no_txns_yet:{bn:'এখনো কোনো লেনদেন নেই',en:'No transactions yet'},
+
+  qa_btn_sale:{bn:'বিক্রয়',en:'Sale'}, qa_btn_purchase:{bn:'ক্রয়',en:'Purchase'},
+  qa_btn_income:{bn:'আয়',en:'Income'}, qa_btn_expense:{bn:'ব্যয়',en:'Expense'},
+  qa_btn_recv_baki:{bn:'বাকি দিলাম',en:'Credit Given'}, qa_btn_pay_baki:{bn:'বাকি নিলাম',en:'Credit Taken'},
+  qa_btn_recv_dhar:{bn:'ধার দিলাম',en:'Loan Given'}, qa_btn_pay_dhar:{bn:'ধার নিলাম',en:'Loan Taken'},
+  qa_btn_receive_due:{bn:'বকেয়া আদায়',en:'Due Collected'}, qa_btn_pay_due:{bn:'বকেয়া শোধ',en:'Due Paid'},
+
+  info_sale_title:{bn:'বিক্রয় কীভাবে কাজ করে',en:'How Sale works'},
+  info_sale_body:{
+    bn:'কোনো পণ্য বা সেবা বিক্রি করলে এটি ব্যবহার করুন। পার্টি বেছে নিলে সেই পার্টির হিসাবেও এন্ট্রি যোগ হবে। "সম্পূর্ণ নগদে" টিক থাকলে পুরো টাকা আপনার নির্বাচিত হিসাবে যোগ হবে। টিক তুলে আংশিক/বাকি পরিমাণ দিলে, বাকি অংশ ওই পার্টির কাছে আপনার পাওনা হিসেবে যোগ হবে।',
+    en:'Use this when you sell a product or service. If you pick a party, the entry also updates that party\'s ledger. If "fully in cash" is checked, the full amount is added to your selected account. If unchecked and you enter a due amount, the remaining part becomes an amount that party owes you.'
+  },
+  info_purchase_title:{bn:'ক্রয় কীভাবে কাজ করে',en:'How Purchase works'},
+  info_purchase_body:{
+    bn:'কারো কাছ থেকে পণ্য বা সেবা কেনার সময় এটি ব্যবহার করুন। সম্পূর্ণ নগদে দিলে আপনার হিসাব থেকে পুরো টাকা কমে যাবে। বাকিতে কিনলে, বাকি অংশ সাপ্লায়ারের প্রতি আপনার দেনা হিসেবে যোগ হবে।',
+    en:'Use this when you buy a product or service from someone. If paid fully in cash, the full amount is deducted from your account. If bought on credit, the remaining part becomes what you owe the supplier.'
+  },
+  info_income_title:{bn:'আয় কীভাবে কাজ করে',en:'How Income works'},
+  info_income_body:{
+    bn:'বিক্রয়ের সাথে সরাসরি সম্পর্কিত নয় এমন আয় (যেমন বেতন, ভাড়া আয়, অন্যান্য আয়) রেকর্ড করতে এটি ব্যবহার করুন। পুরো টাকা আপনার নির্বাচিত হিসাবে যোগ হবে।',
+    en:'Use this to record income not tied to a sale — e.g. salary, rental income, other income. The full amount is added to your selected account.'
+  },
+  info_expense_title:{bn:'ব্যয় কীভাবে কাজ করে',en:'How Expense works'},
+  info_expense_body:{
+    bn:'ব্যবসা বা ব্যক্তিগত খরচ (যেমন বিদ্যুৎ বিল, ভাড়া, পরিবহন) রেকর্ড করতে এটি ব্যবহার করুন। পুরো টাকা আপনার নির্বাচিত হিসাব থেকে বিয়োগ হবে।',
+    en:'Use this to record a business or personal expense — e.g. utility bill, rent, transport. The full amount is deducted from your selected account.'
+  },
+  info_recv_baki_title:{bn:'বাকি দিলাম কীভাবে কাজ করে',en:'How Credit Given works'},
+  info_recv_baki_body:{
+    bn:'আপনি কাউকে জিনিস বা সেবা বাকিতে দিলে এটি ব্যবহার করুন (যেমন বাকিতে চা)। নির্বাচিত হিসাব থেকে পুরো টাকা বিয়োগ হবে, এবং সেই পার্টির কাছে আপনার পাওনা সমপরিমাণ বাড়বে।',
+    en:'Use this when you give goods/services to someone on credit (e.g. tea on credit). The full amount is deducted from the selected account, and that party\'s balance owed to you increases by the same amount.'
+  },
+  info_pay_baki_title:{bn:'বাকি নিলাম কীভাবে কাজ করে',en:'How Credit Taken works'},
+  info_pay_baki_body:{
+    bn:'আপনি কারো কাছ থেকে জিনিস বা সেবা বাকিতে নিলে এটি ব্যবহার করুন। নির্বাচিত হিসাবে পুরো টাকা যোগ হবে, এবং সেই পার্টির কাছে আপনার দেনা সমপরিমাণ বাড়বে।',
+    en:'Use this when you take goods/services from someone on credit. The full amount is added to the selected account, and what you owe that party increases by the same amount.'
+  },
+  info_recv_dhar_title:{bn:'ধার দিলাম কীভাবে কাজ করে',en:'How Loan Given works'},
+  info_recv_dhar_body:{
+    bn:'আপনি কাউকে নগদ টাকা ধার দিলে এটি ব্যবহার করুন। নির্বাচিত হিসাব থেকে পুরো টাকা বিয়োগ হবে, এবং সেই পার্টির কাছে আপনার পাওনা সমপরিমাণ বাড়বে।',
+    en:'Use this when you lend cash to someone. The full amount is deducted from the selected account, and that party\'s balance owed to you increases by the same amount.'
+  },
+  info_pay_dhar_title:{bn:'ধার নিলাম কীভাবে কাজ করে',en:'How Loan Taken works'},
+  info_pay_dhar_body:{
+    bn:'আপনি কারো কাছ থেকে নগদ টাকা ধার নিলে এটি ব্যবহার করুন। নির্বাচিত হিসাবে পুরো টাকা যোগ হবে, এবং সেই পার্টির কাছে আপনার দেনা সমপরিমাণ বাড়বে।',
+    en:'Use this when you borrow cash from someone. The full amount is added to the selected account, and what you owe that party increases by the same amount.'
+  },
+  info_receive_due_title:{bn:'বকেয়া আদায় কীভাবে কাজ করে',en:'How Due Collected works'},
+  info_receive_due_body:{
+    bn:'কোনো পার্টির কাছে আপনার আগের পাওনা থেকে টাকা আদায় করলে এটি ব্যবহার করুন। নির্বাচিত হিসাবে টাকা যোগ হবে, এবং সেই পার্টির পাওনা তত পরিমাণ কমে যাবে।',
+    en:'Use this when you collect money against a party\'s existing balance owed to you. The amount is added to the selected account, and that party\'s amount owed to you decreases accordingly.'
+  },
+  info_pay_due_title:{bn:'বকেয়া শোধ কীভাবে কাজ করে',en:'How Due Paid works'},
+  info_pay_due_body:{
+    bn:'আপনি কোনো পার্টিকে আগের দেনা পরিশোধ করলে এটি ব্যবহার করুন। নির্বাচিত হিসাব থেকে টাকা বিয়োগ হবে, এবং সেই পার্টির প্রতি আপনার দেনা তত পরিমাণ কমে যাবে।',
+    en:'Use this when you pay off an existing debt to a party. The amount is deducted from the selected account, and what you owe that party decreases accordingly.'
+  },
+};
+function t(key){ const e = STR[key]; if(!e) return key; return e[state.lang] || e.bn; }
+
 const TABS = [
-  { id:'dashboard', label:'ড্যাশবোর্ড', icon:'📊' },
-  { id:'transactions', label:'লেনদেন', icon:'💳' },
-  { id:'report', label:'রিপোর্ট', icon:'📈' },
-  { id:'accounts', label:'হিসাব', icon:'🏦' },
-  { id:'contacts', label:'পরিচিতি', icon:'👥' },
-  { id:'products', label:'পণ্য', icon:'📦' },
-  { id:'blog', label:'ব্লগ', icon:'📝' },
+  { id:'dashboard', key:'tab_dashboard', icon:'📊' },
+  { id:'transactions', key:'tab_transactions', icon:'💳' },
+  { id:'report', key:'tab_report', icon:'📈' },
+  { id:'accounts', key:'tab_accounts', icon:'🏦' },
+  { id:'contacts', key:'tab_contacts', icon:'👥' },
+  { id:'products', key:'tab_products', icon:'📦' },
+  { id:'blog', key:'tab_blog', icon:'📝' },
 ];
 
-const TXN_TYPE_LABEL = {
+const TXN_TYPE_LABEL_BN = {
   income:'আয়', expense:'ব্যয়', purchase:'ক্রয়', sale:'বিক্রয়', transfer:'ট্রান্সফার',
   receivable:'পাওনা তৈরি', payable:'দেনা তৈরি', receive_due:'পাওনা আদায়', pay_due:'দেনা পরিশোধ', opening_balance:'ওপেনিং ব্যালেন্স'
 };
-const ACCOUNT_TYPE_LABEL = { cash:'ক্যাশ', bank:'ব্যাংক', bkash:'বিকাশ', nagad:'নগদ', rocket:'রকেট', card:'কার্ড', other:'অন্যান্য' };
-const CONTACT_TYPE_LABEL = { customer:'কাস্টমার', supplier:'সাপ্লায়ার', personal:'ব্যক্তিগত', employee:'কর্মচারী', other:'অন্যান্য' };
+const TXN_TYPE_LABEL_EN = {
+  income:'Income', expense:'Expense', purchase:'Purchase', sale:'Sale', transfer:'Transfer',
+  receivable:'Receivable Created', payable:'Payable Created', receive_due:'Due Collected', pay_due:'Due Paid', opening_balance:'Opening Balance'
+};
+const ACCOUNT_TYPE_LABEL_BN = { cash:'ক্যাশ', bank:'ব্যাংক', bkash:'বিকাশ', nagad:'নগদ', rocket:'রকেট', card:'কার্ড', other:'অন্যান্য' };
+const ACCOUNT_TYPE_LABEL_EN = { cash:'Cash', bank:'Bank', bkash:'bKash', nagad:'Nagad', rocket:'Rocket', card:'Card', other:'Other' };
+const CONTACT_TYPE_LABEL_BN = { customer:'কাস্টমার', supplier:'সাপ্লায়ার', personal:'ব্যক্তিগত', employee:'কর্মচারী', other:'অন্যান্য' };
+const CONTACT_TYPE_LABEL_EN = { customer:'Customer', supplier:'Supplier', personal:'Personal', employee:'Employee', other:'Other' };
+function mkLangProxy(bnObj, enObj){
+  return new Proxy({}, {
+    get(_, k){ if(typeof k==='symbol') return undefined; const src = state.lang==='en'?enObj:bnObj; return src[k]; },
+    ownKeys(){ return Reflect.ownKeys(bnObj); },
+    getOwnPropertyDescriptor(){ return { enumerable:true, configurable:true }; }
+  });
+}
+const TXN_TYPE_LABEL = mkLangProxy(TXN_TYPE_LABEL_BN, TXN_TYPE_LABEL_EN);
+const ACCOUNT_TYPE_LABEL = mkLangProxy(ACCOUNT_TYPE_LABEL_BN, ACCOUNT_TYPE_LABEL_EN);
+const CONTACT_TYPE_LABEL = mkLangProxy(CONTACT_TYPE_LABEL_BN, CONTACT_TYPE_LABEL_EN);
+
+function showInfoModal(title, bodyHtml){
+  document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-sheet"><h3><span>${title}</span><button type="button" class="modal-close">✕</button></h3><div class="modal-body">${bodyHtml}</div></div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.remove(); });
+  overlay.querySelector('.modal-close').addEventListener('click', ()=> overlay.remove());
+}
 
 let state = {
   active:'dashboard', user:null, contactDetailId:null, settings:null, pinUnlocked:false, editingTxnId:null,
   editingAccountId:null, editingContactId:null, editingProductId:null, profile:null, profileError:null, allProfiles:[], appConfig:null,
   accounts:[], categories:[], contacts:[], products:[], transactions:[], trash:[], loaded:false,
   blogPosts:[], blogLoaded:false, blogPostDetailId:null, editingBlogPostId:null,
+  lang: (localStorage.getItem('hk_lang')==='en' ? 'en' : 'bn'),
 };
 
 function fmt(n){ n=Number(n)||0; return '৳'+n.toLocaleString('en-IN',{maximumFractionDigits:2}); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function genTxnNo(){ return 'TXN-'+Date.now()+'-'+Math.floor(Math.random()*1000); }
-function showSaved(msg){ const el=document.getElementById('saveStatus'); el.textContent=msg||'সংরক্ষণ হয়েছে'; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1400); }
+function showSaved(msg){ const el=document.getElementById('saveStatus'); el.textContent=msg||t('saved_default'); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1400); }
+function renderLangToggle(){
+  document.querySelectorAll('#langToggle button').forEach(b=> b.classList.toggle('active', b.dataset.lang===state.lang));
+  const lo = document.getElementById('logoutBtn'); if(lo) lo.textContent = t('logout');
+}
+document.querySelectorAll('#langToggle button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    state.lang = b.dataset.lang;
+    localStorage.setItem('hk_lang', state.lang);
+    renderLangToggle(); renderTabs(); renderMain();
+  });
+});
+renderLangToggle();
 
 // ================= AUTH =================
 let authMode = 'login';
@@ -354,9 +516,9 @@ async function doLogout(){
   setAuthMode('login');
 }
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
-  document.getElementById('logoutBtn').textContent = '...';
+  document.getElementById('logoutBtn').textContent = t('logout_wait');
   await doLogout();
-  document.getElementById('logoutBtn').textContent = 'লগআউট';
+  document.getElementById('logoutBtn').textContent = t('logout');
 });
 document.getElementById('expiredLogoutBtn').addEventListener('click', doLogout);
 
@@ -637,7 +799,7 @@ function contactTxnEffect(t){
 function renderStatementHtml(kind, id, from, to){
   const isAcc = kind==='acc';
   const subject = isAcc ? state.accounts.find(a=>a.id===id) : state.contacts.find(c=>c.id===id);
-  if(!subject) return `<div class="empty-state">খুঁজে পাওয়া যায়নি</div>`;
+  if(!subject) return `<div class="empty-state">${t('stmt_not_found')}</div>`;
 
   let all = isAcc
     ? state.transactions.filter(t=> t.account_id===id || (t.transaction_type==='transfer' && (t.from_account_id===id || t.to_account_id===id)))
@@ -659,17 +821,17 @@ function renderStatementHtml(kind, id, from, to){
   const visibleRows = (from ? rows.filter(r=>r.t.transaction_date >= from) : rows).slice().reverse();
   const closing = rows.length ? rows[rows.length-1].bal : opening;
 
-  const drLabel = isAcc ? 'জমা' : 'দিলাম (Dr)';
-  const crLabel = isAcc ? 'উত্তোলন' : 'পেলাম (Cr)';
+  const drLabel = isAcc ? t('stmt_dr_acc') : t('stmt_dr_con');
+  const crLabel = isAcc ? t('stmt_cr_acc') : t('stmt_cr_con');
   const name = isAcc ? subject.account_name : subject.contact_name;
-  const closingLabel = isAcc ? (closing>=0?'ব্যালেন্স':'ঋণাত্মক ব্যালেন্স') : (closing>=0?'আপনি পাবেন':'আপনি দেবেন');
+  const closingLabel = isAcc ? (closing>=0?t('stmt_pos_balance'):t('stmt_neg_balance')) : (closing>=0?t('stmt_you_get'):t('stmt_you_owe'));
 
   return `
     <div class="statement-summary">
-      <div><div style="font-weight:700;">${name}</div><div style="opacity:.75;">শুরুর ব্যালেন্স: ${fmt(Math.abs(opening))}</div></div>
+      <div><div style="font-weight:700;">${name}</div><div style="opacity:.75;">${t('stmt_opening')}: ${fmt(Math.abs(opening))}</div></div>
       <div style="text-align:right;"><div class="amt-big ${closing>=0?'':'neg'}" style="color:${closing>=0?'var(--green)':'var(--maroon)'};">${fmt(Math.abs(closing))}</div><div style="opacity:.75;">${closingLabel}</div></div>
     </div>
-    <div class="ledger-col-heads"><div>বিবরণ</div><div style="text-align:center;">${drLabel}</div><div style="text-align:center;">${crLabel}</div></div>
+    <div class="ledger-col-heads"><div>${state.lang==='en'?'Details':'বিবরণ'}</div><div style="text-align:center;">${drLabel}</div><div style="text-align:center;">${crLabel}</div></div>
     <div>
       ${visibleRows.length ? visibleRows.map(r=>`
         <div class="ledger-row">
@@ -677,8 +839,8 @@ function renderStatementHtml(kind, id, from, to){
           <div class="ld-dr">${r.dr? fmt(r.dr):'—'}</div>
           <div class="ld-cr">${r.cr? fmt(r.cr):'—'}</div>
         </div>
-        <div style="text-align:right; font-size:.68rem; color:var(--ink-soft); padding:0 6px 8px;">ব্যালেন্স: ${fmt(Math.abs(r.bal))}</div>
-      `).join('') : `<div class="empty-state">এই সময়সীমায় কোনো এন্ট্রি নেই</div>`}
+        <div style="text-align:right; font-size:.68rem; color:var(--ink-soft); padding:0 6px 8px;">${t('stmt_balance_label')}: ${fmt(Math.abs(r.bal))}</div>
+      `).join('') : `<div class="empty-state">${t('stmt_no_entries')}</div>`}
     </div>
   `;
 }
@@ -692,7 +854,7 @@ function getTabs(){
 function renderTabs(){
   const el = document.getElementById('tabs');
   const tabs = getTabs();
-  el.innerHTML = tabs.map(t=>`<button class="tab-btn ${t.id===state.active?'active':''}" data-tab="${t.id}"><span>${t.icon}</span>${t.label}</button>`).join('');
+  el.innerHTML = tabs.map(tb=>`<button class="tab-btn ${tb.id===state.active?'active':''}" data-tab="${tb.id}"><span>${tb.icon}</span>${tb.key?t(tb.key):tb.label}</button>`).join('');
   el.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click', ()=>{
     if(b.dataset.tab==='blog'){ window.location.href='blog.html'; return; }
     state.active=b.dataset.tab; state.contactDetailId=null; renderMain(); renderTabs();
@@ -733,37 +895,37 @@ function renderDashboard(el){
   const stmtDefaultTo = todayStr();
   const stmtDefaultFrom = (()=>{ const d=new Date(); d.setMonth(d.getMonth()-1); return d.toISOString().slice(0,10); })();
   const stmtOptions = `
-    <optgroup label="হিসাব">${state.accounts.filter(a=>a.is_active!==false).map(a=>`<option value="acc:${a.id}">🏦 ${a.account_name}</option>`).join('')}</optgroup>
-    <optgroup label="পরিচিতি">${state.contacts.filter(c=>c.is_active!==false).map(c=>`<option value="con:${c.id}">👤 ${c.contact_name}</option>`).join('')}</optgroup>
+    <optgroup label="${t('stmt_group_accounts')}">${state.accounts.filter(a=>a.is_active!==false).map(a=>`<option value="acc:${a.id}">🏦 ${a.account_name}</option>`).join('')}</optgroup>
+    <optgroup label="${t('stmt_group_contacts')}">${state.contacts.filter(c=>c.is_active!==false).map(c=>`<option value="con:${c.id}">👤 ${c.contact_name}</option>`).join('')}</optgroup>
   `;
 
   el.innerHTML = `
-    <h2 class="section-title">এই মাসের সারসংক্ষেপ</h2>
+    <h2 class="section-title">${t('dash_title')}</h2>
     ${trialBanner}
     <div class="cards-grid compact">
-      <div class="stat-card pos"><div class="label">আয়</div><div class="value">${fmt(income)}</div></div>
-      <div class="stat-card neg"><div class="label">ব্যয়</div><div class="value">${fmt(expense)}</div></div>
-      <div class="stat-card pos"><div class="label">বিক্রয়</div><div class="value">${fmt(sale)}</div></div>
-      <div class="stat-card neg"><div class="label">ক্রয়</div><div class="value">${fmt(purchase)}</div></div>
-      <div class="stat-card pos"><div class="label">মোট পাওনা</div><div class="value">${fmt(totalReceivable)}</div></div>
-      <div class="stat-card neg"><div class="label">মোট দেনা</div><div class="value">${fmt(totalPayable)}</div></div>
+      <div class="stat-card pos"><div class="label">${t('card_income')}</div><div class="value">${fmt(income)}</div></div>
+      <div class="stat-card neg"><div class="label">${t('card_expense')}</div><div class="value">${fmt(expense)}</div></div>
+      <div class="stat-card pos"><div class="label">${t('card_sale')}</div><div class="value">${fmt(sale)}</div></div>
+      <div class="stat-card neg"><div class="label">${t('card_purchase')}</div><div class="value">${fmt(purchase)}</div></div>
+      <div class="stat-card pos"><div class="label">${t('card_receivable')}</div><div class="value">${fmt(totalReceivable)}</div></div>
+      <div class="stat-card neg"><div class="label">${t('card_payable')}</div><div class="value">${fmt(totalPayable)}</div></div>
     </div>
 
     <div class="statement-box">
-      <h3 class="sub-title" style="margin-top:0;">হিসাব / পরিচিতির স্টেটমেন্ট</h3>
+      <h3 class="sub-title" style="margin-top:0;">${t('stmt_title')}</h3>
       <div class="filter-bar">
         <select id="stmtTarget">${stmtOptions}</select>
         <div class="date-row">
-          <div><label>থেকে</label><input type="date" id="stmtFrom" value="${stmtDefaultFrom}"></div>
-          <div><label>পর্যন্ত</label><input type="date" id="stmtTo" value="${stmtDefaultTo}"></div>
+          <div><label>${t('stmt_from')}</label><input type="date" id="stmtFrom" value="${stmtDefaultFrom}"></div>
+          <div><label>${t('stmt_to')}</label><input type="date" id="stmtTo" value="${stmtDefaultTo}"></div>
         </div>
-        <button type="button" class="btn btn-primary" id="stmtViewBtn">স্টেটমেন্ট দেখুন</button>
+        <button type="button" class="btn btn-primary" id="stmtViewBtn">${t('stmt_view')}</button>
       </div>
       <div id="stmtResult"></div>
     </div>
 
-    <div class="stat-card gold" style="margin-bottom:14px;"><div class="label">সব হিসাবে মোট ব্যালেন্স</div><div class="value">${fmt(totalCash)}</div></div>
-    <h3 class="sub-title" style="margin-top:0;">হিসাব অনুযায়ী ব্যালেন্স</h3>
+    <div class="stat-card gold" style="margin-bottom:14px;"><div class="label">${t('total_balance_label')}</div><div class="value">${fmt(totalCash)}</div></div>
+    <h3 class="sub-title" style="margin-top:0;">${t('acc_balance_subtitle')}</h3>
     <div class="entry-list" style="margin-bottom:20px;">
       ${visibleAccounts.length ? visibleAccounts.map(a=>{
         const bal = accountBalance(a.id);
@@ -771,9 +933,9 @@ function renderDashboard(el){
           <div><div class="name">${a.account_name}</div><div class="meta">${ACCOUNT_TYPE_LABEL[a.account_type]}</div></div>
           <div class="amt ${bal>=0?'pos':'neg'}">${fmt(bal)}</div>
         </div>`;
-      }).join('') : `<div class="empty-state">কোনো হিসাব দেখানোর মতো নেই</div>`}
+      }).join('') : `<div class="empty-state">${t('no_accounts')}</div>`}
     </div>
-    ${lowStock.length ? `<div class="stat-card neg" style="margin-bottom:18px;"><div class="label">⚠ কম স্টক</div><div class="value" style="font-size:.85rem;">${lowStock.map(p=>p.product_name).join(', ')}</div></div>` : ''}
+    ${lowStock.length ? `<div class="stat-card neg" style="margin-bottom:18px;"><div class="label">${t('low_stock')}</div><div class="value" style="font-size:.85rem;">${lowStock.map(p=>p.product_name).join(', ')}</div></div>` : ''}
     <div class="chart-box"><canvas id="trendCanvas"></canvas></div>
   `;
 
@@ -782,7 +944,7 @@ function renderDashboard(el){
     const from = document.getElementById('stmtFrom').value;
     const to = document.getElementById('stmtTo').value;
     const resultEl = document.getElementById('stmtResult');
-    if(!val){ resultEl.innerHTML = `<div class="empty-state">একটি হিসাব বা পরিচিতি নির্বাচন করুন</div>`; return; }
+    if(!val){ resultEl.innerHTML = `<div class="empty-state">${t('stmt_select_prompt')}</div>`; return; }
     const [kind, id] = val.split(':');
     resultEl.innerHTML = renderStatementHtml(kind, id, from, to);
   }
@@ -792,10 +954,10 @@ function renderDashboard(el){
   const months=[]; for(let i=5;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); months.push(d.toISOString().slice(0,7)); }
   const incomeData = months.map(m=> state.transactions.filter(t=>t.transaction_type==='income'&&t.transaction_date.startsWith(m)).reduce((s,t)=>s+Number(t.total_amount),0));
   const expenseData = months.map(m=> state.transactions.filter(t=>t.transaction_type==='expense'&&t.transaction_date.startsWith(m)).reduce((s,t)=>s+Number(t.total_amount),0));
-  const labels = months.map(m=> new Date(m+'-01').toLocaleDateString('bn-BD',{month:'short'}));
+  const labels = months.map(m=> new Date(m+'-01').toLocaleDateString(state.lang==='en'?'en-US':'bn-BD',{month:'short'}));
   if(window._trendChart) window._trendChart.destroy();
   window._trendChart = new Chart(document.getElementById('trendCanvas').getContext('2d'), {
-    type:'bar', data:{ labels, datasets:[ {label:'আয়',data:incomeData,backgroundColor:'#2f6f4e'}, {label:'ব্যয়',data:expenseData,backgroundColor:'#8c2f39'} ] },
+    type:'bar', data:{ labels, datasets:[ {label:t('card_income'),data:incomeData,backgroundColor:'#2f6f4e'}, {label:t('card_expense'),data:expenseData,backgroundColor:'#8c2f39'} ] },
     options:{ responsive:true, plugins:{legend:{labels:{font:{family:'Hind Siliguri'}}}}, scales:{x:{ticks:{font:{family:'Hind Siliguri'}}},y:{ticks:{font:{family:'Hind Siliguri'}}}} }
   });
 }
@@ -844,56 +1006,61 @@ window.deleteTxn = async function(id){
 // ================= TRANSACTIONS TAB (Quick Add, BuKu-style) =================
 // direction each quick button maps to a transaction_type + whether contact is required
 const QA_BUTTONS = [
-  { type:'sale',       label:'বিক্রয়',      cls:'green', needsContact:true  },
-  { type:'purchase',   label:'ক্রয়',        cls:'red',   needsContact:true  },
-  { type:'income',     label:'আয়',          cls:'green', needsContact:false },
-  { type:'expense',    label:'ব্যয়',        cls:'red',   needsContact:false },
-  { type:'receivable', label:'বাকি দিলাম',  cls:'green', needsContact:true, noteTag:'বাকি' },
-  { type:'payable',    label:'বাকি নিলাম',  cls:'red',   needsContact:true, noteTag:'বাকি' },
-  { type:'receivable', label:'ধার দিলাম',   cls:'green', needsContact:true, noteTag:'ধার' },
-  { type:'payable',    label:'ধার নিলাম',   cls:'red',   needsContact:true, noteTag:'ধার' },
-  { type:'receive_due',label:'বকেয়া আদায়', cls:'green', needsContact:true  },
-  { type:'pay_due',    label:'বকেয়া শোধ',  cls:'red',   needsContact:true  },
+  { type:'sale',       labelKey:'qa_btn_sale',       infoKey:'info_sale',       cls:'green', needsContact:true  },
+  { type:'purchase',   labelKey:'qa_btn_purchase',   infoKey:'info_purchase',   cls:'red',   needsContact:true  },
+  { type:'income',     labelKey:'qa_btn_income',     infoKey:'info_income',     cls:'green', needsContact:false },
+  { type:'expense',    labelKey:'qa_btn_expense',    infoKey:'info_expense',    cls:'red',   needsContact:false },
+  { type:'receivable', labelKey:'qa_btn_recv_baki',  infoKey:'info_recv_baki',  cls:'green', needsContact:true, noteTag:'বাকি' },
+  { type:'payable',    labelKey:'qa_btn_pay_baki',   infoKey:'info_pay_baki',   cls:'red',   needsContact:true, noteTag:'বাকি' },
+  { type:'receivable', labelKey:'qa_btn_recv_dhar',  infoKey:'info_recv_dhar',  cls:'green', needsContact:true, noteTag:'ধার' },
+  { type:'payable',    labelKey:'qa_btn_pay_dhar',   infoKey:'info_pay_dhar',   cls:'red',   needsContact:true, noteTag:'ধার' },
+  { type:'receive_due',labelKey:'qa_btn_receive_due',infoKey:'info_receive_due',cls:'green', needsContact:true  },
+  { type:'pay_due',    labelKey:'qa_btn_pay_due',    infoKey:'info_pay_due',    cls:'red',   needsContact:true  },
 ];
 
 function renderTransactions(el){
   const editing = state.editingTxnId ? state.transactions.find(t=>t.id===state.editingTxnId) : null;
+  let partyOpen = !!(editing && editing.contact_id);
   el.innerHTML = `
-    <h2 class="section-title">${editing ? '✏️ লেনদেন সম্পাদনা' : 'দ্রুত এন্ট্রি'}</h2>
+    <h2 class="section-title">${editing ? t('qa_title_edit') : t('qa_title_new')}</h2>
     <div class="qa-card">
       <div class="row2">
-        <div><label>তারিখ</label><input type="date" id="qaDate" value="${editing?editing.transaction_date:todayStr()}"></div>
-        <div><label>হিসাব</label>
+        <div><label>${t('qa_date')}</label><input type="date" id="qaDate" value="${editing?editing.transaction_date:todayStr()}"></div>
+        <div><label>${t('qa_account')}</label>
           <select id="qaAccount">
             ${state.accounts.filter(a=>a.is_active!==false).map(a=>`<option value="${a.id}" ${editing&&editing.account_id===a.id?'selected':''}>${a.account_name}</option>`).join('')}
-            <option value="__new__">➕ নতুন হিসাব যোগ করুন</option>
+            <option value="__new__">${t('qa_new_account_opt')}</option>
           </select>
         </div>
       </div>
       <div id="newAccountFields" class="row2" style="display:none;">
-        <div><label>নতুন হিসাবের নাম</label><input type="text" id="newAccName" placeholder="যেমন: ব্যাংক এশিয়া"></div>
-        <div><label>ধরন</label><select id="newAccType">${Object.keys(ACCOUNT_TYPE_LABEL).map(k=>`<option value="${k}">${ACCOUNT_TYPE_LABEL[k]}</option>`).join('')}</select></div>
+        <div><label>${t('qa_new_account_name')}</label><input type="text" id="newAccName" placeholder="যেমন: ব্যাংক এশিয়া"></div>
+        <div><label>${t('qa_new_account_type')}</label><select id="newAccType">${Object.keys(ACCOUNT_TYPE_LABEL).map(k=>`<option value="${k}">${ACCOUNT_TYPE_LABEL[k]}</option>`).join('')}</select></div>
       </div>
-      <div><label>পার্টি (ঐচ্ছিক)</label><select id="qaParty"><option value="">— কোনো পার্টি না —</option>${state.contacts.filter(c=>c.is_active!==false).map(c=>`<option value="${c.id}" ${editing&&editing.contact_id===c.id?'selected':''}>${c.contact_name}</option>`).join('')}</select></div>
-      <div><label>পরিমাণ (৳)</label><input type="number" step="0.01" id="qaAmount" value="${editing?editing.total_amount:''}" placeholder="0.00"></div>
-      <div><label>নোট (ঐচ্ছিক)</label><input type="text" id="qaNote" value="${editing&&editing.notes?editing.notes:''}" placeholder="বিস্তারিত"></div>
-      <label class="checkbox-row"><input type="checkbox" id="qaPaid" ${!editing || !(Number(editing.due_amount)>0) ? 'checked':''}> সম্পূর্ণ নগদে (ক্রয়/বিক্রয়ের ক্ষেত্রে প্রযোজ্য)</label>
+      <button type="button" class="party-toggle-link" id="qaPartyToggleBtn">${partyOpen? t('qa_party_remove_link') : t('qa_party_add_link')}</button>
+      <div id="qaPartyField" style="display:${partyOpen?'block':'none'};">
+        <label>${t('qa_party_label')}</label>
+        <select id="qaParty"><option value="">${t('qa_party_none')}</option>${state.contacts.filter(c=>c.is_active!==false).map(c=>`<option value="${c.id}" ${editing&&editing.contact_id===c.id?'selected':''}>${c.contact_name}</option>`).join('')}</select>
+      </div>
+      <div><label>${t('qa_amount')}</label><input type="number" step="0.01" id="qaAmount" value="${editing?editing.total_amount:''}" placeholder="0.00"></div>
+      <div><label>${t('qa_note')}</label><input type="text" id="qaNote" value="${editing&&editing.notes?editing.notes:''}" placeholder="বিস্তারিত"></div>
+      <label class="checkbox-row"><input type="checkbox" id="qaPaid" ${!editing || !(Number(editing.due_amount)>0) ? 'checked':''}> ${t('qa_full_cash')}</label>
       ${editing ? `
-        <div style="font-size:.75rem; color:var(--ink-soft);">এন্ট্রির ধরন: <b>${TXN_TYPE_LABEL[editing.transaction_type]}</b> (ধরন বদলাতে চাইলে এটি ট্র্যাশে দিয়ে নতুন করে যোগ করুন)</div>
+        <div style="font-size:.75rem; color:var(--ink-soft);">${t('qa_type_label')}: <b>${TXN_TYPE_LABEL[editing.transaction_type]}</b> ${t('qa_type_hint')}</div>
         <div style="display:flex; gap:10px;">
-          <button type="button" class="btn btn-primary" id="qaUpdateBtn" style="flex:1;">আপডেট করুন</button>
-          <button type="button" class="btn btn-outline" id="qaCancelBtn" style="flex:1;">বাতিল</button>
+          <button type="button" class="btn btn-primary" id="qaUpdateBtn" style="flex:1;">${t('qa_update_btn')}</button>
+          <button type="button" class="btn btn-outline" id="qaCancelBtn" style="flex:1;">${t('qa_cancel_btn')}</button>
         </div>
       ` : `
       <div class="qa-grid">
-        ${QA_BUTTONS.map(b=>`<button type="button" class="qa-btn ${b.cls}" data-type="${b.type}" data-needs-contact="${b.needsContact}" data-note-tag="${b.noteTag||''}">${b.label}</button>`).join('')}
+        ${QA_BUTTONS.map(b=>`<div class="qa-btn-wrap"><button type="button" class="qa-btn ${b.cls}" data-type="${b.type}" data-needs-contact="${b.needsContact}" data-note-tag="${b.noteTag||''}">${t(b.labelKey)}</button><span class="qa-info-btn" data-info="${b.infoKey}" role="button" tabindex="0">i</span></div>`).join('')}
       </div>
-      <p style="font-size:.72rem; color:var(--ink-soft); margin:2px 0 0;">💡 <b>বাকি</b> = জিনিস/সেবার বাকি (যেমন বাকিতে চা) · <b>ধার</b> = নগদ টাকা ধার · <b>বকেয়া আদায়/শোধ</b> = আগের যেকোনো বাকি/ধার মেটানো</p>
+      <p style="font-size:.72rem; color:var(--ink-soft); margin:2px 0 0;">${t('qa_hint')}</p>
       `}
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--line); padding-bottom:10px; margin-bottom:14px;">
-      <h2 class="section-title" style="border:none; margin:0; padding:0;">সাম্প্রতিক লেনদেন</h2>
-      <button class="btn btn-outline" id="trashBtn" style="padding:7px 13px; font-size:.75rem;">🗑 ট্র্যাশ (${state.trash.length})</button>
+      <h2 class="section-title" style="border:none; margin:0; padding:0;">${t('recent_txns')}</h2>
+      <button class="btn btn-outline" id="trashBtn" style="padding:7px 13px; font-size:.75rem;">${t('trash_btn')} (${state.trash.length})</button>
     </div>
     <div class="entry-list" id="txnList"></div>
   `;
@@ -902,8 +1069,18 @@ function renderTransactions(el){
     document.getElementById('newAccountFields').style.display = e.target.value==='__new__' ? 'grid' : 'none';
   });
 
+  document.getElementById('qaPartyToggleBtn').addEventListener('click', ()=>{
+    partyOpen = !partyOpen;
+    document.getElementById('qaPartyField').style.display = partyOpen ? 'block' : 'none';
+    document.getElementById('qaPartyToggleBtn').textContent = partyOpen ? t('qa_party_remove_link') : t('qa_party_add_link');
+    if(!partyOpen) document.getElementById('qaParty').value = '';
+  });
+
   el.querySelectorAll('.qa-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> quickAddSubmit(btn.dataset.type, btn.dataset.needsContact==='true', el, btn.dataset.noteTag));
+  });
+  el.querySelectorAll('.qa-info-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{ e.stopPropagation(); showInfoModal(t(btn.dataset.info+'_title'), t(btn.dataset.info+'_body')); });
   });
 
   if(editing){
@@ -913,7 +1090,7 @@ function renderTransactions(el){
   document.getElementById('trashBtn').addEventListener('click', ()=> renderTrash(el));
 
   const list = el.querySelector('#txnList');
-  list.innerHTML = state.transactions.length ? state.transactions.slice(0,30).map(t=>txnRow(t)).join('') : `<div class="empty-state">এখনো কোনো লেনদেন নেই</div>`;
+  list.innerHTML = state.transactions.length ? state.transactions.slice(0,30).map(t=>txnRow(t)).join('') : `<div class="empty-state">${t('no_txns_yet')}</div>`;
 }
 
 async function resolveAccountId(){
@@ -1171,7 +1348,7 @@ function renderContacts(el){
   const totalReceivable = activeContacts.reduce((s,c)=>{ const b=contactBalance(c.id); return s + (b>0?b:0); },0);
   const totalPayable = activeContacts.reduce((s,c)=>{ const b=contactBalance(c.id); return s + (b<0?-b:0); },0);
   el.innerHTML = `
-    <h2 class="section-title">${editingCt?'✏️ পরিচিতি সম্পাদনা':'পরিচিতি (কাস্টমার / সাপ্লায়ার)'}</h2>
+    <h2 class="section-title">${editingCt?'✏️ পার্টি সম্পাদনা':'পার্টি (কাস্টমার / সাপ্লায়ার)'}</h2>
     <div class="cards-grid">
       <div class="stat-card pos"><div class="label">মোট পাবো</div><div class="value">${fmt(totalReceivable)}</div></div>
       <div class="stat-card neg"><div class="label">মোট দেবো</div><div class="value">${fmt(totalPayable)}</div></div>
@@ -1184,13 +1361,13 @@ function renderContacts(el){
       </div>
       <div><label>শুরুর ব্যালেন্স (৳) — পজিটিভ মানে ওরা পাবে, নেগেটিভ মানে আপনি পাবেন</label><input type="number" step="0.01" name="opening_balance" value="${editingCt?editingCt.opening_balance:''}" placeholder="0.00"></div>
       <div style="display:flex; gap:10px;">
-        <button class="btn btn-primary" type="submit" style="flex:1;">${editingCt?'আপডেট করুন':'পরিচিতি যোগ করুন'}</button>
+        <button class="btn btn-primary" type="submit" style="flex:1;">${editingCt?'আপডেট করুন':'পার্টি যোগ করুন'}</button>
         ${editingCt?`<button class="btn btn-outline" type="button" id="ctCancelBtn" style="flex:1;">বাতিল</button>`:''}
       </div>
     </form>
     <input type="text" id="ctSearch" placeholder="নাম বা মোবাইল দিয়ে খুঁজুন">
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0 10px;">
-      <h3 class="sub-title" style="margin:0;">সব পরিচিতি (ট্যাপ করে পুরো হিসাব দেখুন)</h3>
+      <h3 class="sub-title" style="margin:0;">সব পার্টি (ট্যাপ করে পুরো হিসাব দেখুন)</h3>
       <button class="btn btn-outline" id="ctTrashBtn" style="padding:6px 12px; font-size:.72rem;">🗑 নিষ্ক্রিয় (${inactiveContacts.length})</button>
     </div>
     <div class="entry-list" id="ctList"></div>
@@ -1226,7 +1403,7 @@ function renderContacts(el){
           <button class="icon-btn" data-del="${c.id}">🗑</button>
         </div>
       </div>`;
-    }).join('') : `<div class="empty-state">কোনো পরিচিতি পাওয়া যায়নি</div>`;
+    }).join('') : `<div class="empty-state">কোনো পার্টি পাওয়া যায়নি</div>`;
     list.querySelectorAll('[data-contact]').forEach(row=>{
       row.addEventListener('click', (ev)=>{ if(ev.target.closest('.icon-btn')) return; state.contactDetailId = row.dataset.contact; renderMain(); });
     });
@@ -1236,7 +1413,7 @@ function renderContacts(el){
     list.querySelectorAll('[data-del]').forEach(btn=>{
       btn.addEventListener('click', async (ev)=>{
         ev.stopPropagation();
-        if(!confirm('এই পরিচিতিটি নিষ্ক্রিয় করতে চান? পরে চাইলে ফিরিয়ে আনতে পারবেন।')) return;
+        if(!confirm('এই পার্টিটি নিষ্ক্রিয় করতে চান? পরে চাইলে ফিরিয়ে আনতে পারবেন।')) return;
         const { data, error } = await sb.from('contacts').update({ is_active:false }).eq('id', btn.dataset.del).select();
         if(!error){ const idx=state.contacts.findIndex(c=>c.id===btn.dataset.del); state.contacts[idx]=data[0]; showSaved('নিষ্ক্রিয় করা হয়েছে'); renderMain(); }
       });
@@ -1249,8 +1426,8 @@ function renderContacts(el){
 function renderContactTrash(el){
   const inactive = state.contacts.filter(c=>c.is_active===false);
   el.innerHTML = `
-    <button class="back-btn" id="ctTrashBack">← পরিচিতিতে ফিরুন</button>
-    <h2 class="section-title">🗑 নিষ্ক্রিয় পরিচিতি</h2>
+    <button class="back-btn" id="ctTrashBack">← পার্টিতে ফিরুন</button>
+    <h2 class="section-title">🗑 নিষ্ক্রিয় পার্টি</h2>
     <div class="entry-list" id="ctTrashList"></div>
   `;
   document.getElementById('ctTrashBack').addEventListener('click', ()=> renderContacts(el));
@@ -1261,14 +1438,14 @@ function renderContactTrash(el){
         <button class="icon-btn" onclick="restoreContact('${c.id}')" title="পুনরুদ্ধার">↩️</button>
         <button class="icon-btn" onclick="permanentDeleteContact('${c.id}')" title="স্থায়ীভাবে মুছুন">❌</button>
       </div>
-    </div>`).join('') : `<div class="empty-state">কোনো নিষ্ক্রিয় পরিচিতি নেই</div>`;
+    </div>`).join('') : `<div class="empty-state">কোনো নিষ্ক্রিয় পার্টি নেই</div>`;
 }
 window.restoreContact = async function(id){
   const { data, error } = await sb.from('contacts').update({ is_active:true }).eq('id', id).select();
   if(!error){ const idx=state.contacts.findIndex(c=>c.id===id); state.contacts[idx]=data[0]; showSaved('পুনরুদ্ধার হয়েছে'); renderMain(); }
 };
 window.permanentDeleteContact = async function(id){
-  if(!confirm('এই পরিচিতিটি স্থায়ীভাবে মুছে ফেলতে চান?')) return;
+  if(!confirm('এই পার্টিটি স্থায়ীভাবে মুছে ফেলতে চান?')) return;
   const { error } = await sb.from('contacts').delete().eq('id', id);
   if(error){ alert('মুছা যায়নি: '+error.message); return; }
   state.contacts = state.contacts.filter(c=>c.id!==id);
@@ -1300,7 +1477,7 @@ function renderContactDetail(el, contactId){
   const net = contactBalance(contactId);
 
   el.innerHTML = `
-    <button class="back-btn" id="ctBack">← পরিচিতি তালিকায় ফিরুন</button>
+    <button class="back-btn" id="ctBack">← পার্টি তালিকায় ফিরুন</button>
     <div class="ledger-header">
       <div class="name">${c.contact_name}${c.phone?'<div style="font-size:.72rem; font-weight:400; opacity:.8;">'+c.phone+'</div>':''}</div>
       <div class="net">
