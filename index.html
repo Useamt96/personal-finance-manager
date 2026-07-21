@@ -10,58 +10,57 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root{
-    --paper:#f7f1e3; --paper-dark:#efe3c8; --ink:#2b2420; --ink-soft:#7a6f60;
-    --rule-red:#b5442e; --green:#2f7d5a; --green-bg:#e3f0e8; --maroon:#a13c3c; --maroon-bg:#f7e6e2;
-    --gold:#b3831f; --gold-bg:#f6ecd2; --line:#e2d2a8; --card:#fffdf7; --shadow:0 4px 18px rgba(60,40,20,0.10);
-    --accent-grad:linear-gradient(135deg,#b5442e,#8c2f39);
+    --paper:#f7f7f9; --paper-dark:#edeef1; --ink:#20242c; --ink-soft:#7a8291;
+    --rule-red:#e69500; --green:#1aa251; --green-bg:#e5f7ec; --maroon:#e0342c; --maroon-bg:#fdeaea;
+    --gold:#f5b400; --gold-bg:#fff3d6; --line:#e8e9ed; --card:#ffffff; --shadow:0 4px 16px rgba(20,20,25,0.07);
+    --accent-grad:linear-gradient(135deg,#ffcd3c,#f5a900);
   }
   *{box-sizing:border-box;}
   body{
     margin:0; background:var(--paper);
     background-image:
-      radial-gradient(circle at 15% 8%, rgba(181,68,46,0.05), transparent 40%),
-      radial-gradient(circle at 90% 90%, rgba(179,131,31,0.07), transparent 45%);
+      radial-gradient(circle at 15% 8%, rgba(245,169,0,0.05), transparent 40%),
+      radial-gradient(circle at 90% 90%, rgba(245,169,0,0.05), transparent 45%);
     font-family:'Hind Siliguri', sans-serif; color:var(--ink); min-height:100vh;
   }
   .app{ max-width:720px; margin:0 auto; position:relative; padding-bottom:36px;}
   header.top{
     padding:26px 20px 18px; display:flex; justify-content:space-between; align-items:center;
-    background:var(--accent-grad); color:#fdf6ea; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    background:var(--accent-grad); color:var(--ink); border-radius:0 0 22px 22px; box-shadow:var(--shadow);
     margin-bottom:16px;
   }
   header.top .brand{ display:flex; align-items:center; gap:10px;}
   header.top .brand-icon{ font-size:1.6rem; }
-  header.top h1{ font-family:'Noto Serif Bengali', serif; font-size:1.35rem; margin:0; letter-spacing:.2px;}
-  header.top p{ margin:2px 0 0; font-size:.78rem; opacity:.85;}
+  header.top h1{ font-family:'Hind Siliguri', sans-serif; font-weight:800; font-size:1.3rem; margin:0; letter-spacing:.2px;}
+  header.top p{ margin:2px 0 0; font-size:.78rem; opacity:.75;}
   .header-actions{ display:flex; gap:8px; align-items:center;}
-  .icon-round{ background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:1rem; color:#fff; cursor:pointer;}
-  .logout-btn{ background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.35); border-radius:20px; padding:7px 14px; font-size:.75rem; color:#fff; cursor:pointer; font-weight:600;}
-  .lang-toggle{ display:flex; background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); border-radius:20px; padding:3px; gap:2px;}
-  .lang-toggle button{ border:none; background:transparent; color:#fdf6ea; font-size:.68rem; font-weight:700; padding:5px 9px; border-radius:16px; cursor:pointer; font-family:'Hind Siliguri',sans-serif;}
-  .lang-toggle button.active{ background:#fff; color:var(--rule-red);}
+  .icon-round{ background:rgba(0,0,0,0.08); border:1px solid rgba(0,0,0,0.12); border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:1rem; color:var(--ink); cursor:pointer;}
+  .logout-btn{ background:rgba(0,0,0,0.08); border:1px solid rgba(0,0,0,0.12); border-radius:20px; padding:7px 14px; font-size:.75rem; color:var(--ink); cursor:pointer; font-weight:700;}
+  .lang-toggle{ display:flex; background:rgba(0,0,0,0.08); border:1px solid rgba(0,0,0,0.12); border-radius:20px; padding:3px; gap:2px;}
+  .lang-toggle button{ border:none; background:transparent; color:var(--ink); font-size:.68rem; font-weight:700; padding:5px 9px; border-radius:16px; cursor:pointer; font-family:'Hind Siliguri',sans-serif; opacity:.7;}
+  .lang-toggle button.active{ background:#fff; color:#c67e00; opacity:1;}
   .qa-btn-wrap{ position:relative; display:flex; width:100%; }
   .qa-btn-wrap .qa-btn{ flex:1; width:100%; }
-  .qa-info-btn{ position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%; background:#fff; border:1px solid var(--line); color:var(--ink-soft); font-size:.62rem; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 1px 3px rgba(60,40,20,.15); z-index:2;}
-  .modal-overlay{ position:fixed; inset:0; background:rgba(30,20,10,.5); display:flex; align-items:flex-end; justify-content:center; z-index:999;}
+  .qa-info-btn{ position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%; background:#fff; border:1px solid var(--line); color:var(--ink-soft); font-size:.62rem; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 1px 3px rgba(20,20,25,.12); z-index:2;}
+  .modal-overlay{ position:fixed; inset:0; background:rgba(20,20,25,.5); display:flex; align-items:flex-end; justify-content:center; z-index:999;}
   .modal-overlay .modal-sheet{ background:var(--card); width:100%; max-width:720px; border-radius:18px 18px 0 0; padding:20px 18px 26px; max-height:82vh; overflow-y:auto; box-shadow:0 -6px 24px rgba(0,0,0,.2);}
-  .modal-sheet h3{ font-family:'Noto Serif Bengali', serif; margin:0 0 12px; font-size:1.05rem; display:flex; justify-content:space-between; align-items:center; gap:10px;}
+  .modal-sheet h3{ font-family:'Hind Siliguri',sans-serif; font-weight:800; margin:0 0 12px; font-size:1.05rem; display:flex; justify-content:space-between; align-items:center; gap:10px;}
   .modal-sheet .modal-close{ background:var(--paper); border:1px solid var(--line); border-radius:50%; width:30px; height:30px; font-size:.9rem; cursor:pointer; flex:0 0 auto;}
   .modal-sheet .modal-body{ font-size:.88rem; line-height:1.7; color:var(--ink);}
   .party-toggle-link{ background:none; border:none; color:var(--rule-red); font-size:.8rem; font-weight:700; cursor:pointer; padding:6px 0; text-align:left;}
   .tabs{ display:flex; gap:8px; padding:0 14px 14px; overflow-x:auto; scrollbar-width:none;}
   .tabs::-webkit-scrollbar{display:none;}
-  .tab-btn{ flex:0 0 auto; font-family:'Hind Siliguri',sans-serif; font-weight:600; font-size:.82rem; padding:10px 16px; background:var(--card); border:1px solid var(--line); border-radius:24px; color:var(--ink-soft); cursor:pointer; transition:.15s; display:flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(60,40,20,.05);}
-  .tab-btn.active{ background:var(--accent-grad); color:#fff; border-color:transparent; box-shadow:0 3px 10px rgba(161,60,60,.3);}
+  .tab-btn{ flex:0 0 auto; font-family:'Hind Siliguri',sans-serif; font-weight:600; font-size:.82rem; padding:10px 16px; background:var(--card); border:1px solid var(--line); border-radius:24px; color:var(--ink-soft); cursor:pointer; transition:.15s; display:flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(20,20,25,.04);}
+  .tab-btn.active{ background:var(--gold); color:var(--ink); border-color:transparent; font-weight:800; box-shadow:0 3px 10px rgba(245,180,0,.35);}
   main{ background:var(--card); margin:0 14px; border-radius:18px; box-shadow:var(--shadow); border:1px solid var(--line); padding:20px 18px 26px; min-height:55vh;}
-  h2.section-title{ font-family:'Noto Serif Bengali', serif; font-size:1.15rem; margin:0 0 16px; padding-bottom:10px; border-bottom:2px solid var(--line); color:var(--ink); display:flex; align-items:center; gap:8px;}
-  h3.sub-title{ font-family:'Noto Serif Bengali', serif; font-size:.95rem; margin:20px 0 10px; color:var(--ink-soft);}
+  h2.section-title{ font-family:'Hind Siliguri', sans-serif; font-weight:800; font-size:1.1rem; margin:0 0 16px; padding-bottom:10px; border-bottom:2px solid var(--line); color:var(--ink); display:flex; align-items:center; gap:8px;}
+  h3.sub-title{ font-family:'Hind Siliguri', sans-serif; font-weight:700; font-size:.92rem; margin:20px 0 10px; color:var(--ink-soft);}
   .cards-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;}
-  .stat-card{ background:linear-gradient(160deg,var(--paper) 0%, var(--paper-dark) 100%); border:1px solid var(--line); border-radius:14px; padding:14px; position:relative; overflow:hidden;}
-  .stat-card::before{ content:""; position:absolute; top:0; left:0; width:4px; height:100%; background:var(--ink-soft);}
-  .stat-card.pos::before{ background:var(--green);} .stat-card.neg::before{ background:var(--maroon);} .stat-card.gold::before{ background:var(--gold);}
+  .stat-card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; position:relative; overflow:hidden;}
   .stat-card .label{ font-size:.72rem; color:var(--ink-soft); margin-bottom:5px; font-weight:600;}
-  .stat-card .value{ font-family:'Noto Serif Bengali',serif; font-size:1.2rem; font-weight:700;}
-  .stat-card.pos .value{ color:var(--green);} .stat-card.neg .value{ color:var(--maroon);} .stat-card.gold .value{ color:var(--gold);}
+  .stat-card .value{ font-family:'Hind Siliguri',sans-serif; font-size:1.2rem; font-weight:800; color:var(--ink);}
+  .stat-card.pos .value{ color:var(--green);} .stat-card.neg .value{ color:var(--maroon);} .stat-card.gold .value{ color:#c67e00;}
+  .stat-card.gold{ background:var(--gold-bg); border-color:#f3dfa0;}
   .cards-grid.compact{ gap:8px; margin-bottom:14px;}
   .cards-grid.compact .stat-card{ padding:8px 10px;}
   .cards-grid.compact .stat-card .label{ font-size:.62rem; margin-bottom:2px;}
@@ -70,17 +69,17 @@
   .statement-box .filter-bar{ display:grid; grid-template-columns:1fr; gap:8px; margin-bottom:12px;}
   .statement-box .filter-bar .date-row{ display:grid; grid-template-columns:1fr 1fr; gap:8px;}
   .statement-summary{ display:flex; justify-content:space-between; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; font-size:.78rem;}
-  .statement-summary .amt-big{ font-family:'Noto Serif Bengali',serif; font-weight:700; font-size:1rem;}
+  .statement-summary .amt-big{ font-family:'Hind Siliguri',sans-serif; font-weight:800; font-weight:700; font-size:1rem;}
   .chart-box{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:20px;}
   .chart-box canvas{ max-height:220px;}
   form.entry-form{ display:grid; gap:12px; background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:20px;}
   form.entry-form .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   label{ font-size:.75rem; color:var(--ink-soft); display:block; margin-bottom:4px; font-weight:600;}
   input, select, textarea{ width:100%; font-family:'Hind Siliguri',sans-serif; font-size:.92rem; padding:10px 12px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); transition:.15s;}
-  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--rule-red); box-shadow:0 0 0 3px rgba(181,68,46,0.1);}
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--rule-red); box-shadow:0 0 0 3px rgba(230,149,0,0.15);}
   textarea{ resize:vertical; min-height:40px;}
   .btn{ font-family:'Hind Siliguri',sans-serif; font-weight:700; font-size:.92rem; padding:12px 18px; border-radius:11px; border:none; cursor:pointer; transition:.15s;}
-  .btn-primary{ background:var(--accent-grad); color:#fff; box-shadow:0 3px 10px rgba(161,60,60,.25);}
+  .btn-primary{ background:var(--accent-grad); color:var(--ink); box-shadow:0 3px 10px rgba(245,169,0,.3);}
   .btn-primary:active{ transform:scale(.98);}
   .btn-outline{ background:transparent; border:1px solid var(--line); color:var(--ink-soft);}
   .btn-block{ width:100%; }
@@ -93,7 +92,7 @@
   .entry:active{ transform:scale(.99);}
   .entry .meta{ font-size:.72rem; color:var(--ink-soft); margin-top:2px;}
   .entry .name{ font-weight:700; font-size:.92rem;}
-  .entry .amt{ font-family:'Noto Serif Bengali',serif; font-weight:700; font-size:1.02rem; white-space:nowrap;}
+  .entry .amt{ font-family:'Hind Siliguri',sans-serif; font-weight:800; font-weight:700; font-size:1.02rem; white-space:nowrap;}
   .amt.pos{ color:var(--green);} .amt.neg{ color:var(--maroon);}
   .icon-btn{ background:none; border:none; cursor:pointer; font-size:1.05rem; color:var(--ink-soft); padding:5px;}
   .badge{ font-size:.62rem; padding:3px 9px; border-radius:20px; font-weight:700; display:inline-block; margin-top:4px;}
@@ -107,13 +106,13 @@
   ::placeholder{ color:#b8ac96;}
   /* Auth screen */
   .auth-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
-    background:radial-gradient(circle at 20% 10%, rgba(181,68,46,.08), transparent 45%), var(--paper);}
+    background:radial-gradient(circle at 20% 10%, rgba(245,169,0,.08), transparent 45%), var(--paper);}
   .auth-card{ background:var(--card); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow); padding:32px 24px; width:100%; max-width:380px;}
-  .auth-card h1{ font-family:'Noto Serif Bengali',serif; text-align:center; margin:0 0 4px; font-size:1.7rem; background:var(--accent-grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .auth-card h1{ font-family:'Hind Siliguri',sans-serif; font-weight:800; text-align:center; margin:0 0 4px; font-size:1.7rem; color:#c67e00;}
   .auth-card p.sub{ text-align:center; color:var(--ink-soft); font-size:.85rem; margin:0 0 22px;}
   .auth-toggle{ display:flex; gap:8px; margin-bottom:18px; background:var(--paper); padding:4px; border-radius:12px;}
   .auth-toggle button{ flex:1; padding:9px; border-radius:9px; border:none; background:transparent; font-weight:700; font-size:.85rem; color:var(--ink-soft); cursor:pointer;}
-  .auth-toggle button.active{ background:var(--card); color:var(--ink); box-shadow:0 1px 4px rgba(60,40,20,.1);}
+  .auth-toggle button.active{ background:var(--card); color:var(--ink); box-shadow:0 1px 4px rgba(20,20,25,.1);}
   .auth-error{ color:var(--maroon); font-size:.8rem; margin-top:4px; min-height:1em;}
   .auth-note{ font-size:.75rem; color:var(--ink-soft); text-align:center; margin-top:14px;}
   select[multiple]{ height:auto; }
@@ -129,10 +128,10 @@
   .checkbox-row{ display:flex; align-items:center; gap:7px; font-size:.8rem; color:var(--ink-soft);}
   .checkbox-row input{ width:auto;}
   /* Contact ledger */
-  .ledger-header{ background:var(--accent-grad); color:#fdf6ea; border-radius:14px; padding:16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow);}
-  .ledger-header .name{ font-family:'Noto Serif Bengali',serif; font-size:1.1rem; font-weight:700;}
+  .ledger-header{ background:var(--accent-grad); color:var(--ink); border-radius:14px; padding:16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow);}
+  .ledger-header .name{ font-family:'Hind Siliguri',sans-serif; font-weight:800; font-size:1.1rem; font-weight:700;}
   .ledger-header .net{ text-align:right;}
-  .ledger-header .net .amt-big{ font-family:'Noto Serif Bengali',serif; font-size:1.3rem; font-weight:700;}
+  .ledger-header .net .amt-big{ font-family:'Hind Siliguri',sans-serif; font-weight:800; font-size:1.3rem; font-weight:700;}
   .ledger-header .net .lbl{ font-size:.7rem; opacity:.85;}
   .back-btn{ background:none; border:none; color:var(--ink-soft); font-size:.9rem; font-weight:600; cursor:pointer; padding:0 0 12px 0; display:block;}
   .ledger-row{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; padding:11px 8px; border-bottom:1px solid var(--line); align-items:center;}
@@ -147,10 +146,10 @@
   .btn-receive{ background:var(--green-bg); color:var(--green);}
   /* PIN lock screen */
   .pin-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
-    background:radial-gradient(circle at 20% 10%, rgba(181,68,46,.08), transparent 45%), var(--paper);}
+    background:radial-gradient(circle at 20% 10%, rgba(245,169,0,.08), transparent 45%), var(--paper);}
   .pin-card{ background:var(--card); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow); padding:32px 24px; width:100%; max-width:340px; text-align:center;}
   .pin-card .lock-icon{ font-size:2.2rem; margin-bottom:6px;}
-  .pin-card h2{ font-family:'Noto Serif Bengali',serif; margin:0 0 4px; font-size:1.3rem;}
+  .pin-card h2{ font-family:'Hind Siliguri',sans-serif; font-weight:800; margin:0 0 4px; font-size:1.3rem;}
   .pin-card p{ color:var(--ink-soft); font-size:.82rem; margin:0 0 20px;}
   .pin-dots{ display:flex; justify-content:center; gap:14px; margin-bottom:22px;}
   .pin-dot{ width:16px; height:16px; border-radius:50%; border:2px solid var(--line); background:transparent;}
@@ -167,17 +166,17 @@
   /* Blog */
   .blog-card{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; cursor:pointer; transition:.15s;}
   .blog-card:active{ transform:scale(.99);}
-  .blog-card .blog-title{ font-family:'Noto Serif Bengali',serif; font-size:1.08rem; font-weight:700; margin-bottom:6px; line-height:1.4;}
+  .blog-card .blog-title{ font-family:'Hind Siliguri',sans-serif; font-weight:800; font-size:1.08rem; font-weight:700; margin-bottom:6px; line-height:1.4;}
   .blog-card .blog-meta{ font-size:.72rem; color:var(--ink-soft); margin-bottom:8px;}
   .blog-card .blog-snippet{ font-size:.85rem; color:var(--ink-soft); line-height:1.6; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
-  .blog-detail-title{ font-family:'Noto Serif Bengali',serif; font-size:1.4rem; font-weight:700; line-height:1.4; margin:4px 0 8px;}
+  .blog-detail-title{ font-family:'Hind Siliguri',sans-serif; font-weight:800; font-size:1.4rem; font-weight:700; line-height:1.4; margin:4px 0 8px;}
   .blog-detail-meta{ font-size:.78rem; color:var(--ink-soft); margin-bottom:20px; padding-bottom:16px; border-bottom:2px solid var(--line);}
   .blog-detail-content{ font-size:.98rem; line-height:1.9; white-space:pre-wrap; color:var(--ink);}
   .blog-locked{ text-align:center; padding:30px 16px; background:var(--paper); border:1px dashed var(--line); border-radius:14px; color:var(--ink-soft); font-size:.85rem;}
   /* Settings panel */
-  .settings-overlay{ position:fixed; inset:0; background:rgba(43,36,32,0.45); z-index:100; display:flex; align-items:flex-end; justify-content:center;}
+  .settings-overlay{ position:fixed; inset:0; background:rgba(20,20,25,0.45); z-index:100; display:flex; align-items:flex-end; justify-content:center;}
   .settings-sheet{ background:var(--card); width:100%; max-width:480px; border-radius:20px 20px 0 0; padding:22px 20px 28px; box-shadow:0 -6px 24px rgba(0,0,0,.2); max-height:85vh; overflow-y:auto;}
-  .settings-sheet h2{ font-family:'Noto Serif Bengali',serif; margin:0 0 16px; font-size:1.15rem;}
+  .settings-sheet h2{ font-family:'Hind Siliguri',sans-serif; font-weight:800; margin:0 0 16px; font-size:1.15rem;}
   .settings-row{ display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--line);}
   .switch{ position:relative; width:44px; height:24px;}
   .switch input{ opacity:0; width:0; height:0;}
@@ -957,7 +956,7 @@ function renderDashboard(el){
   const labels = months.map(m=> new Date(m+'-01').toLocaleDateString(state.lang==='en'?'en-US':'bn-BD',{month:'short'}));
   if(window._trendChart) window._trendChart.destroy();
   window._trendChart = new Chart(document.getElementById('trendCanvas').getContext('2d'), {
-    type:'bar', data:{ labels, datasets:[ {label:t('card_income'),data:incomeData,backgroundColor:'#2f6f4e'}, {label:t('card_expense'),data:expenseData,backgroundColor:'#8c2f39'} ] },
+    type:'bar', data:{ labels, datasets:[ {label:t('card_income'),data:incomeData,backgroundColor:'#1aa251'}, {label:t('card_expense'),data:expenseData,backgroundColor:'#e0342c'} ] },
     options:{ responsive:true, plugins:{legend:{labels:{font:{family:'Hind Siliguri'}}}}, scales:{x:{ticks:{font:{family:'Hind Siliguri'}}},y:{ticks:{font:{family:'Hind Siliguri'}}}} }
   });
 }
@@ -1244,7 +1243,7 @@ function renderReport(el){
     const labels = Object.keys(totals).map(k=>TXN_TYPE_LABEL[k]);
     const values = Object.values(totals);
     window._repChart = new Chart(document.getElementById('repChart').getContext('2d'), {
-      type:'bar', data:{ labels, datasets:[{ label:'পরিমাণ', data:values, backgroundColor:'#a5760f' }] },
+      type:'bar', data:{ labels, datasets:[{ label:'পরিমাণ', data:values, backgroundColor:'#f5a900' }] },
       options:{ responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{font:{family:'Hind Siliguri'}}},y:{ticks:{font:{family:'Hind Siliguri'}}}} }
     });
   }
