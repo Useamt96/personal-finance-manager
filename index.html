@@ -541,6 +541,7 @@ async function bootApp(){
   renderTabs(); renderMain();
   await ensureDefaults();
   await loadAll();
+  touchLastActive();
   const emailLabel = document.getElementById('userEmailLabel');
   emailLabel.textContent = state.user.email + (state.profile && state.profile.is_admin ? ' 👑 (Admin)' : '');
   renderTabs(); renderMain();
@@ -549,6 +550,10 @@ async function bootApp(){
   } else {
     checkPinLock();
   }
+}
+function touchLastActive(){
+  // fire-and-forget; silently ignore if the last_active_at column hasn't been added yet
+  sb.from('profiles').update({ last_active_at: new Date().toISOString() }).eq('id', state.user.id).then(()=>{}).catch(()=>{});
 }
 
 function isAccessExpired(){
@@ -1637,6 +1642,12 @@ async function renderAdmin(el){
 function renderAdminList(el){
   const now = Date.now();
   const cfg = state.appConfig || {};
+  const sortedProfiles = state.allProfiles.slice().sort((a,b)=>{
+    if(a.is_admin !== b.is_admin) return a.is_admin ? 1 : -1;
+    const at = a.last_active_at ? new Date(a.last_active_at).getTime() : 0;
+    const bt = b.last_active_at ? new Date(b.last_active_at).getTime() : 0;
+    return at - bt; // most inactive (oldest / never active) first
+  });
   el.innerHTML = `
     <h2 class="section-title">👑 অ্যাডমিন — সব ইউজার</h2>
     <form class="entry-form" id="configForm">
@@ -1647,7 +1658,7 @@ function renderAdminList(el){
       <div><label>পেমেন্ট নির্দেশনা</label><textarea name="payment_instructions" placeholder="যেমন: বিকাশে ০১xxxxxxxxx নাম্বারে সেন্ড মানি করে স্ক্রিনশট পাঠান">${cfg.payment_instructions||''}</textarea></div>
       <button class="btn btn-primary" type="submit">সংরক্ষণ করুন</button>
     </form>
-    <p style="font-size:.78rem; color:var(--ink-soft); margin:16px 0;">মোট ইউজার: ${state.allProfiles.length}</p>
+    <p style="font-size:.78rem; color:var(--ink-soft); margin:16px 0;">মোট ইউজার: ${state.allProfiles.length} · সবচেয়ে বেশিদিন নিষ্ক্রিয় ইউজার আগে দেখানো হচ্ছে</p>
     <div class="entry-list" id="adminList"></div>
   `;
   document.getElementById('configForm').addEventListener('submit', async (e)=>{
@@ -1666,13 +1677,27 @@ function renderAdminList(el){
     showSaved('তথ্য সংরক্ষণ হয়েছে');
   });
   const list = document.getElementById('adminList');
-  list.innerHTML = state.allProfiles.map(p=>{
+  list.innerHTML = sortedProfiles.map(p=>{
     let statusLabel, statusColor;
     if(p.is_admin){ statusLabel='অ্যাডমিন'; statusColor='gold'; }
     else if(!p.access_expires_at){ statusLabel='আজীবন'; statusColor='pos'; }
     else if(new Date(p.access_expires_at).getTime() < now){ statusLabel='মেয়াদ শেষ'; statusColor='neg'; }
     else { statusLabel='সক্রিয়'; statusColor='pos'; }
     const expiryStr = p.access_expires_at ? new Date(p.access_expires_at).toLocaleDateString('bn-BD',{year:'numeric',month:'short',day:'numeric'}) : '—';
+
+    let activityBadge = '';
+    if(!p.is_admin){
+      if(!p.last_active_at){
+        activityBadge = `<span class="badge expense">কখনো সক্রিয় হয়নি</span>`;
+      } else {
+        const daysAgo = Math.floor((now - new Date(p.last_active_at).getTime()) / 86400000);
+        const label = daysAgo<=0 ? 'আজ সক্রিয়' : daysAgo+' দিন আগে সক্রিয় ছিল';
+        const cls = daysAgo>=30 ? 'expense' : daysAgo>=7 ? 'pay_due' : 'income';
+        activityBadge = `<span class="badge ${cls}">${label}</span>`;
+      }
+    }
+    const emailBtn = (!p.is_admin && p.email) ? `<a class="btn btn-outline" style="flex:1; min-width:120px; font-size:.72rem; padding:8px; text-align:center;" href="mailto:${p.email}?subject=${encodeURIComponent('আপনাকে মিস করছি — হিসাবের খাতা')}&body=${encodeURIComponent('আসসালামু আলাইকুম '+(p.full_name||'')+',\n\nঅনেকদিন ধরে আপনি হিসাবের খাতা অ্যাপে ঢুকছেন না। কোনো সমস্যা হচ্ছে কি? সাহায্য লাগলে জানান, আমরা পাশে আছি।\n\nধন্যবাদ')}">✉️ ইমেইল পাঠান</a>` : '';
+
     return `
     <div class="entry" style="flex-direction:column; align-items:stretch; gap:8px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -1681,7 +1706,10 @@ function renderAdminList(el){
           <div class="meta">${p.email||''}</div>
           <div class="meta">সাইনআপ: ${new Date(p.created_at).toLocaleDateString('bn-BD')}</div>
         </div>
-        <span class="badge ${statusColor==='gold'?'pay_due':statusColor==='pos'?'income':'expense'}">${statusLabel}${p.access_expires_at && !p.is_admin ? ' · '+expiryStr : ''}</span>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+          <span class="badge ${statusColor==='gold'?'pay_due':statusColor==='pos'?'income':'expense'}">${statusLabel}${p.access_expires_at && !p.is_admin ? ' · '+expiryStr : ''}</span>
+          ${activityBadge}
+        </div>
       </div>
       ${p.is_admin ? '' : `
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
@@ -1696,6 +1724,7 @@ function renderAdminList(el){
         <button class="btn btn-primary" style="font-size:.78rem; padding:9px 14px;" onclick="setCustomDate('${p.id}')">সেট করুন</button>
       </div>
       <button class="btn ${p.can_post?'btn-primary':'btn-outline'}" style="font-size:.75rem; padding:9px;" onclick="togglePostAccess('${p.id}', ${!!p.can_post})">📝 ব্লগে পোস্ট করার অনুমতি: ${p.can_post?'চালু আছে (বন্ধ করুন)':'বন্ধ আছে (চালু করুন)'}</button>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">${emailBtn}</div>
       `}
     </div>`;
   }).join('');
